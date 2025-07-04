@@ -17,14 +17,14 @@ case class PWM_Test() extends Component {
 
 
 /***-Registers-***/
-    val counter = CounterUpDownSet(4096)
-    val bitmask = Reg(Bits(8 bits)) init(B"10000000") 
+    val counter = CounterUpDownSet(65536)
+    val bitmask = Reg(Bits(9 bits)) init(0) 
 
 
 /***-Wires-***/
 
 /***-IO stuff-***/
-io.led := (io.value & bitmask) =/= 0
+io.led := (io.value & bitmask(7 downto 0)) =/= 0
 io.cycle := False
 /***-Streams-***/
 
@@ -36,15 +36,18 @@ io.cycle := False
 
     
 /***-LutChains-***/
-val bitmask_next = bitmask(0) ## bitmask(7 downto 1)
+val bitmask_next = (bitmask === 0) ? B"100000000" | B"0" ## bitmask(8 downto 1)
 
 /***-Logic-***/
-
     when(counter === 0)
     {
+        when(bitmask_next === B"100000000"){
+            counter.setValue(2048)
+            io.cycle := True
+        }otherwise{
+            counter.setValue((bitmask << 4).resize(16).asUInt)
+        }
         bitmask := bitmask_next
-        counter.setValue((bitmask ## B"1111").asUInt)
-        io.cycle := (bitmask === B"10000000")
     }otherwise{
         counter.decrement()
     }
@@ -65,7 +68,7 @@ object Hub75Sim extends App {
                 dut.clockDomain.waitRisingEdge()
 
                 c += 1
-                if(c > 4096*2){
+                if(c > 65536){
                     loop.break;
                 }
             }

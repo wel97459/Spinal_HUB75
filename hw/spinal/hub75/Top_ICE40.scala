@@ -17,8 +17,8 @@ class Top_ICE40() extends Component {
         val serial_rxd = in Bool()
 
         val led_red = out Bool()
-        //val led_green = out Bool()
-        //val led_blue = out Bool()
+        val led_green = out Bool()
+        val led_blue = out Bool()
     }
     noIoPrefix()
     
@@ -72,13 +72,18 @@ class Top_ICE40() extends Component {
     // clk48Domain.reset := !Core12.reset
 
     val Core12 = new ClockingArea(clk12Domain) {
-        val glow = new PWM_Test()
-        val counter = Counter(4098)
-        when(glow.io.cycle){
-            counter.increment()
-        } 
-        glow.io.value := counter(12 downto 5).asBits
-        io.led_red := !glow.io.led
+        val glowRed = new PWM_Test()
+        val glowGreen = new PWM_Test()
+        val glowBlue = new PWM_Test()
+
+        glowRed.io.value := 96
+        glowGreen.io.value := 0
+        glowBlue.io.value := 10
+
+
+        io.led_red := !glowRed.io.led
+        io.led_green := !glowGreen.io.led
+        io.led_blue := !glowBlue.io.led
     }
 }
 
