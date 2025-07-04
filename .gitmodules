@@ -1,0 +1,3 @@
+[submodule "hw/spinal/MySpinalHardware"]
+	path = hw/spinal/MySpinalHardware
+	url = https://github.com/wel97459/MySpinalHardware
