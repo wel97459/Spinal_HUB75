@@ -70,6 +70,7 @@ case class hub75_Test() extends Component {
 /***-Registers-***/
     val counter = CounterUpDownSet(256)
     val clk = Reg(Bool()) init(False)
+    val done = Reg(Bool()) init(False)
 /***-Wires-***/
 
 /***-IO stuff-***/
@@ -87,8 +88,9 @@ case class hub75_Test() extends Component {
 /***-LutChains-***/
 
 /***-Logic-***/
-    when(counter === 0 && io.Start)
+    when(counter === 0 && io.Start && !done)
     {
+        done := True
         counter.setValue(64)
     }elsewhen(counter =/= 0){
         when(clk){
@@ -97,6 +99,8 @@ case class hub75_Test() extends Component {
         }otherwise{
             clk := True
         }
+    }elsewhen(!io.Start){
+        done := False
     }
 }
 

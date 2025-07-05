@@ -87,7 +87,7 @@ class Top_ICE40() extends Component {
     // clk48Domain.reset := !Core12.reset
 
     val Core12 = new ClockingArea(clk12Domain) {
-        val glow = new PWM_Test(255, 2)
+        val glow = new PWM_Test(4096, 4)
         val areaDiv = new SlowArea(10000) {
             val hub = new hub75_Test()
             hub.io.Start := True
@@ -110,15 +110,15 @@ class Top_ICE40() extends Component {
         io.led_blue := (glow.io.mask & blueValue).asUInt === 0
     }
 
-    io.hub75.Blank := !io.led_red 
+    io.hub75.Blank := io.led_red 
 
     io.hub75.Address := 0
     io.hub75.RGB0.R := True
-    io.hub75.RGB0.G := False 
-    io.hub75.RGB0.B := False 
-    io.hub75.RGB1.R := False 
-    io.hub75.RGB1.G := False 
-    io.hub75.RGB1.B := False 
+    io.hub75.RGB0.G := True
+    io.hub75.RGB0.B := True 
+    io.hub75.RGB1.R := True 
+    io.hub75.RGB1.G := True 
+    io.hub75.RGB1.B := True
 }
 
 object Top_ICE40_Verilog extends App {
