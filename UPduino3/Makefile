@@ -2,6 +2,7 @@ PACKAGE=hub75
 TARGET=Top_ICE40
 OBJS+=../hw/spinal/hub75/$(TARGET).scala
 OBJS+=../hw/spinal/hub75/Config.scala
+OBJS+=../hw/spinal/hub75/hub75.scala
 HW_FILES+=../hw/gen/$(TARGET).v
 TOP_FILE=../hw/gen/$(TARGET).v
 PIN_BINDING_FILE=upduino.pcf

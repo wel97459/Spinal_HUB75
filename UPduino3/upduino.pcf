@@ -17,17 +17,17 @@ set_frequency clk_12Mhz 12
 set_io -nowarn clk_12Mhz 20
 set_io -nowarn -pullup yes reset_ 10
 
-set_io -nowarn io_RGB0_R 44
-set_io -nowarn io_RGB0_G 3
-set_io -nowarn io_RGB0_B 6
-set_io -nowarn io_RGB1_R 9
-set_io -nowarn io_RGB1_G 4
-set_io -nowarn io_RGB1_B 11
-set_io -nowarn io_Latch 23
-set_io -nowarn io_Blank 21
-set_io -nowarn io_Sclk 13
-set_io -nowarn io_Address[0] 18
-set_io -nowarn io_Address[1] 26
-set_io -nowarn io_Address[2] 19
-set_io -nowarn io_Address[3] 25
-set_io -nowarn io_Address[4] 27
+set_io -nowarn hub75_RGB0_R 44
+set_io -nowarn hub75_RGB0_G 3
+set_io -nowarn hub75_RGB0_B 6
+set_io -nowarn hub75_RGB1_R 9
+set_io -nowarn hub75_RGB1_G 4
+set_io -nowarn hub75_RGB1_B 11
+set_io -nowarn hub75_Latch 23
+set_io -nowarn hub75_Blank 21
+set_io -nowarn hub75_Sclk 13
+set_io -nowarn hub75_Address[0] 18
+set_io -nowarn hub75_Address[1] 26
+set_io -nowarn hub75_Address[2] 19
+set_io -nowarn hub75_Address[3] 25
+set_io -nowarn hub75_Address[4] 27
