@@ -8,7 +8,7 @@ object Config {
     targetDirectory = "hw/gen",
     device = Device.LATTICE,
     defaultConfigForClockDomains = ClockDomainConfig(
-      resetKind = SYNC
+      resetKind = ASYNC
     )
   )
 

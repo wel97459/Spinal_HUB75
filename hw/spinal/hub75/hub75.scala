@@ -2,14 +2,16 @@ package hub75
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.fsm._
 import spinal.core.sim._
 import scala.util.control.Breaks
 import  MySpinalHardware._
 
-case class PWM_Test(val pad: BigInt, val period: BigInt) extends Component {
+case class PWM_Test(val period: BigInt) extends Component {
     val io = new Bundle
     {
         val start = in Bool()
+        val Wait = in Bool()
         val mask = out Bits(8 bits)
         val blank = out Bool()
         val done = out Bool()
@@ -20,16 +22,16 @@ case class PWM_Test(val pad: BigInt, val period: BigInt) extends Component {
 
 /***-Registers-***/
     val counter = CounterUpDownSet(65536)
-    val bitmask = Reg(Bits(9 bits)) init(0) 
+    val bitmask = Reg(Bits(8 bits)) init(0) 
     val done = Reg(Bool()) init(False)
     val waiting = Reg(Bool()) init(False)
 
 /***-Wires-***/
 
 /***-IO stuff-***/
-io.mask := bitmask(7 downto 0)
-io.done := done
-io.blank := False
+    io.mask := bitmask
+    io.done := done
+    io.blank := False
 /***-Streams-***/
 
 
@@ -40,24 +42,24 @@ io.blank := False
 
     
 /***-LutChains-***/
-val bitmask_next = (bitmask === 0) ? B"100000000" | B"0" ## bitmask(8 downto 1)
+    val bitmask_next = (bitmask === 0) ? B"10000000" | bitmask(0) ## bitmask(7 downto 1)
 
 /***-Logic-***/
-    when(counter === 0 && io.start)
+    when(io.start && done)
     {
-        when(bitmask_next === B"100000000"){
-            counter.setValue(pad)
-        }otherwise{
-            counter.setValue((bitmask << period).resize(16).asUInt)
-        }
+        counter.setValue((bitmask << period).resize(16).asUInt)
         done := False
         bitmask := bitmask_next
-    }elsewhen(counter === 0){
+    }elsewhen(bitmask === B"00000000"){
+        bitmask := bitmask_next
         done := True
-    }otherwise{
-        when(counter > 0 && bitmask_next =/= B"100000000"){
-            io.blank := True
-        }
+    }elsewhen(!io.Wait && counter === 0 && bitmask =/= 0){
+        counter.setValue((bitmask << period).resize(16).asUInt)
+        bitmask := bitmask_next
+    }elsewhen(counter === 0 && bitmask === B"10000000"){
+        done := True
+    }elsewhen(counter > 0){
+        io.blank := True
         counter.decrement()
     }
 
@@ -68,6 +70,7 @@ case class hub75_Test() extends Component {
     val io = new Bundle
     {
         val start = in Bool()
+        val Wait = in Bool()
         val Latch = out Bool()
         val Sclk = out Bool()
         val X = out UInt(8 bits)
@@ -85,7 +88,7 @@ case class hub75_Test() extends Component {
 /***-Wires-***/
 
 /***-IO stuff-***/
-    io.Latch := (counter === 0).rise()
+    io.Latch := (counter === 0 && !io.Wait).rise()
     io.Sclk := clk
     io.done := done
     io.X := counter
@@ -140,36 +143,38 @@ case class hub75_top() extends Component {
             val Blank = out Bool()
         }
     }
-    val glow = new PWM_Test(128, 0)
+
+/***-Defines-***/    
+
+
+/***-Registers-***/
     val a = Reg(UInt(8 bits)) init(0)
 
-    val hub = new hub75_Test()
-    io.hub75.Sclk := hub.io.Sclk
-    io.hub75.Latch := hub.io.Latch
-    
-    hub.io.start := False
-    when(glow.io.done){
-        a := a + 1
-        hub.io.start := True
-    }
 
-    glow.io.start := False
-    when(hub.io.done && glow.io.done){
-        glow.io.start := True
-    }
-
+/***-Wires-***/
 
     val redValue = Bits(8 bits)
     val greenValue = Bits(8 bits)
     val blueValue = Bits(8 bits)
 
-    redValue := 1
-    greenValue := 0
-    blueValue := 0
+/***-Streams-***/
 
-    io.hub75.RGB0.R := (glow.io.mask & redValue).asUInt === 0
-    io.hub75.RGB0.G := (glow.io.mask & greenValue).asUInt === 0
-    io.hub75.RGB0.B := (glow.io.mask & blueValue).asUInt === 0
+/***-Blocks-***/
+    val glow = new PWM_Test(0)
+    val hub = new hub75_Test()
+
+    glow.io.start := False
+    glow.io.Wait := False
+
+    hub.io.start := False
+    hub.io.Wait := False
+
+/***-Routing-***/
+    io.hub75.Sclk := hub.io.Sclk
+    io.hub75.Latch := hub.io.Latch
+    io.hub75.RGB0.R := (glow.io.mask & redValue).asBits =/= 0
+    io.hub75.RGB0.G := (glow.io.mask & greenValue).asBits =/= 0
+    io.hub75.RGB0.B := (glow.io.mask & blueValue).asBits =/= 0
     io.hub75.RGB1.R := False
     io.hub75.RGB1.G := False
     io.hub75.RGB1.B := False
@@ -177,6 +182,50 @@ case class hub75_top() extends Component {
     io.hub75.Blank := !glow.io.blank
 
     io.hub75.Address := a(4 downto 0).asBits
+    
+/***-LutChains-***/
+    redValue := (64 - hub.io.X).asBits;
+    greenValue := B"000" ## a(4 downto 0).asBits
+    blueValue := 2;
+
+/***-Logic-***/
+    when(glow.io.done.rise()){
+        a := a + 1
+    }
+
+    val InterfaceFMS = new StateMachine {
+        /***-FMS-***/
+        val Reset: State = new StateDelay(10) with EntryPoint {
+            whenCompleted {
+                goto(SendData)
+            }
+        }
+
+        val SendData: State = new  State {
+            whenIsActive{
+                glow.io.Wait := True
+                hub.io.start := True
+                goto(SendDataWait)
+            }
+        }
+
+        val SendDataWait: State = new  State {
+            whenIsActive{
+                glow.io.Wait := True
+                when(hub.io.done){
+                    goto(RunPWM)
+                }
+            }
+        }
+
+        val RunPWM: State = new  State {
+            whenIsActive{
+                glow.io.start := True
+                goto(SendData)
+            }
+        }
+    }
+
 }
 
 object Hub75Sim extends App {
