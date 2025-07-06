@@ -9,6 +9,8 @@ PIN_BINDING_FILE=upduino.pcf
 
 all: prog
 
+sim:
+	cd .. && rm -f ../hw/gen/* && sbt "runMain $(PACKAGE).Hub75Sim"
 # generate hardware code from spinal code
 $(TOP_FILE): $(OBJS)
 	cd .. && rm -f ../hw/gen/* && sbt "runMain $(PACKAGE).$(TARGET)_Verilog"

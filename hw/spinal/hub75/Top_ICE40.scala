@@ -16,9 +16,9 @@ class Top_ICE40() extends Component {
         //val serial_txd = out Bool()
         val serial_rxd = in Bool()
 
-        val led_red = out Bool()
-        val led_green = out Bool()
-        val led_blue = out Bool()
+        // val led_red = out Bool()
+        // val led_green = out Bool()
+        // val led_blue = out Bool()
         val hub75 = new Bundle {
             val RGB0 = new Bundle {
                 val R = out Bool()
@@ -87,38 +87,9 @@ class Top_ICE40() extends Component {
     // clk48Domain.reset := !Core12.reset
 
     val Core12 = new ClockingArea(clk12Domain) {
-        val glow = new PWM_Test(4096, 4)
-        val areaDiv = new SlowArea(10000) {
-            val hub = new hub75_Test()
-            hub.io.Start := True
-            io.hub75.Sclk := hub.io.Sclk
-            io.hub75.Latch := hub.io.Latch
-        }
-
-        glow.io.startCycle := True
-
-        val redValue = Bits(8 bits)
-        val greenValue = Bits(8 bits)
-        val blueValue = Bits(8 bits)
-
-        redValue := 1
-        greenValue := 1
-        blueValue := 1
-
-        io.led_red := (glow.io.mask & redValue).asUInt === 0
-        io.led_green := (glow.io.mask & greenValue).asUInt === 0
-        io.led_blue := (glow.io.mask & blueValue).asUInt === 0
+        val hub = new hub75_top()
+        io.hub75 <> hub.io.hub75
     }
-
-    io.hub75.Blank := io.led_red 
-
-    io.hub75.Address := 0
-    io.hub75.RGB0.R := True
-    io.hub75.RGB0.G := True
-    io.hub75.RGB0.B := True 
-    io.hub75.RGB1.R := True 
-    io.hub75.RGB1.G := True 
-    io.hub75.RGB1.B := True
 }
 
 object Top_ICE40_Verilog extends App {
