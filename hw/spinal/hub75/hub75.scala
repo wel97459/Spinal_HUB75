@@ -53,7 +53,7 @@ case class PWM_Test(val period: BigInt) extends Component {
     }elsewhen(bitmask === B"00000000"){
         bitmask := bitmask_next
         done := True
-    }elsewhen(!io.Wait && counter === 0 && bitmask =/= 0){
+    }elsewhen(!io.Wait && counter === 0 && bitmask =/= 0 && !done){
         counter.setValue((bitmask << period).resize(16).asUInt)
         bitmask := bitmask_next
     }elsewhen(counter === 0 && bitmask === B"10000000"){
@@ -226,10 +226,6 @@ case class hub75_top() extends Component {
     }
 
 /***-Logic-***/
-    when(glow.io.done.rise()){
-        a := a + 1
-    }
-
     ball.io.update := (a === 64).rise()
 
     val InterfaceFMS = new StateMachine {
@@ -255,6 +251,9 @@ case class hub75_top() extends Component {
             whenIsActive{
                 glow.io.Wait := True
                 when(hub.io.done){
+                    when(glow.io.mask === B"00000001"){
+                        a := a + 1
+                    }
                     goto(RunPWM)
                 }
             }
@@ -317,7 +316,7 @@ case class BasicBall(val SX: BigInt, val SY: BigInt) extends Component
 object Hub75Sim extends App {
     Config.sim.compile(hub75_top()).doSim { dut =>
         //Fork a process to generate the reset and the clock on the dut
-        dut.clockDomain.forkStimulus(period = 10)
+        dut.clockDomain.forkStimulus(period = 83)
         var c = 0;
         var cc = 0;
         val loop = new Breaks;
