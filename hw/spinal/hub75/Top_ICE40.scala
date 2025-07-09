@@ -7,6 +7,25 @@ import spinal.lib.blackbox.lattice.ice40._
 import MySpinalHardware._
 
 
+class SPRAM() extends BlackBox {
+    val io = new Bundle {
+        val DATAIN = in Bits(16 bits)
+        val ADDRESS = in Bits(14 bits)
+        val MASKWREN = in Bits(4 bits)
+        val WREN = in Bool()
+        val CHIPSELECT = in Bool()
+        val CLOCK = in Bool()
+        val STANDBY = in Bool()
+        val SLEEP = in Bool()
+        val POWEROFF = in Bool()
+        val DATAOUT = out Bits(16 bits)
+    }
+    noIoPrefix()
+    setBlackBoxName("SB_SPRAM256KA")
+    // Map the current clock domain to the io.clk pin
+    mapClockDomain(clock=io.CLOCK)
+}
+
 //Hardware definition
 class Top_ICE40() extends Component {
     val io = new Bundle {
@@ -86,9 +105,10 @@ class Top_ICE40() extends Component {
     // clk48Domain.clock := intOSC.io.CLKHF
     // clk48Domain.reset := !Core12.reset
 
-    val Core12 = new ClockingArea(clk12Domain) {
-        val hub = new hub75_top()
-        io.hub75 <> hub.io.hub75
+    val Core12 = new ClockingArea(clk12Domain)
+    {
+            val hub = new hub75_top()
+            io.hub75 <> hub.io.hub75
     }
 }
 

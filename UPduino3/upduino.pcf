@@ -18,11 +18,11 @@ set_io -nowarn clk_12Mhz 20
 set_io -nowarn -pullup yes reset_ 10
 
 set_io -nowarn hub75_RGB0_R 21
-set_io -nowarn hub75_RGB0_G 3
-set_io -nowarn hub75_RGB0_B 13
+set_io -nowarn hub75_RGB0_G 13
+set_io -nowarn hub75_RGB0_B 3
 set_io -nowarn hub75_RGB1_R 19
-set_io -nowarn hub75_RGB1_G 4
-set_io -nowarn hub75_RGB1_B 18
+set_io -nowarn hub75_RGB1_G 18
+set_io -nowarn hub75_RGB1_B 4
 set_io -nowarn hub75_Address[0] 11
 set_io -nowarn hub75_Address[2] 9
 set_io -nowarn hub75_Sclk 6

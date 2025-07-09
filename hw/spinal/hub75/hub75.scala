@@ -152,18 +152,28 @@ case class hub75_top() extends Component {
 
 
 /***-Wires-***/
-
-    val redValue0 = Bits(8 bits)
-    val greenValue0 = Bits(8 bits)
-    val blueValue0 = Bits(8 bits)
-
-    val redValue1 = Bits(8 bits)
-    val greenValue1 = Bits(8 bits)
-    val blueValue1 = Bits(8 bits)
+    val rgb565U = Bits(16 bits)
+    val rgb565L = Bits(16 bits)
 
 /***-Streams-***/
+    val UpperLine = StreamFifo(
+      dataType = Bits(16 bits),
+      depth    = 64
+    )
+
+    val LowerLine = StreamFifo(
+      dataType = Bits(16 bits),
+      depth    = 64
+    )
+
+    val Upper = Stream(Bits(6 bits))
 
 /***-Blocks-***/
+    val cscU = new RGB565toRGB888()
+    val cscL = new RGB565toRGB888()
+    cscU.io.rgb656  := rgb565U
+    cscL.io.rgb656  := rgb565L
+
     val glow = new PWM_Test(0)
     val hub = new hub75_Test()
 
@@ -179,6 +189,7 @@ case class hub75_top() extends Component {
 /***-Routing-***/
     val ballU = False 
     val ballL = False
+    val grid = False
     val X = 64 - hub.io.X
 
     when(X === ball.io.X && a(4 downto 0) === ball.io.Y && ball.io.Y < 32){
@@ -189,16 +200,21 @@ case class hub75_top() extends Component {
         ballL := True
     }
 
+    when(X(2) ^ a(2))
+    {
+        grid := True
+    }
+
     io.hub75.Sclk := hub.io.Sclk
     io.hub75.Latch := hub.io.Latch
-    
-    io.hub75.RGB0.R := (glow.io.mask & redValue0).asBits =/= 0
-    io.hub75.RGB0.G := (glow.io.mask & greenValue0).asBits =/= 0
-    io.hub75.RGB0.B := (glow.io.mask & blueValue0).asBits =/= 0
 
-    io.hub75.RGB1.R := (glow.io.mask & redValue1).asBits =/= 0
-    io.hub75.RGB1.G := (glow.io.mask & greenValue1).asBits =/= 0
-    io.hub75.RGB1.B := (glow.io.mask & blueValue1).asBits =/= 0
+    io.hub75.RGB0.R := (glow.io.mask & cscU.io.R8).asBits =/= 0
+    io.hub75.RGB0.G := (glow.io.mask & cscU.io.G8).asBits =/= 0
+    io.hub75.RGB0.B := (glow.io.mask & cscU.io.B8).asBits =/= 0
+
+    io.hub75.RGB1.R := (glow.io.mask & cscL.io.R8).asBits =/= 0
+    io.hub75.RGB1.G := (glow.io.mask & cscL.io.G8).asBits =/= 0
+    io.hub75.RGB1.B := (glow.io.mask & cscL.io.B8).asBits =/= 0
 
     io.hub75.Blank := !glow.io.blank
 
@@ -206,23 +222,17 @@ case class hub75_top() extends Component {
     
 /***-LutChains-***/
     when(ballU){
-        redValue0 := 255
-        greenValue0 := 255
-        blueValue0 := 255
+        rgb565U := B"16'hFFFF"
+   // }elsewhen(grid){
     }otherwise{
-        redValue0 := 2
-        greenValue0 := 2
-        blueValue0 := 2
+        rgb565U := ((64 - hub.io.X).asBits >> 1).resize(5) ## a(4 downto 0).asBits ## B"0" ## B"00000"
     }
 
     when(ballL){
-        redValue1 := 255
-        greenValue1 := 255
-        blueValue1 := 255
+        rgb565L := B"16'hFFFF"
+//    }elsewhen(grid){
     }otherwise{
-        redValue1 := 2
-        greenValue1 := 2
-        blueValue1 := 2
+        rgb565L := ((64 - hub.io.X).asBits >> 1).resize(5) ## B"000000" ## a(4 downto 0).asBits
     }
 
 /***-Logic-***/
@@ -267,6 +277,20 @@ case class hub75_top() extends Component {
         }
     }
 
+}
+
+case class RGB565toRGB888() extends Component
+{
+    val io = new Bundle {
+        val rgb656 = in Bits(16 bits)
+        val R8 = out Bits(8 bits)
+        val G8 = out Bits(8 bits)
+        val B8 = out Bits(8 bits)
+    }
+
+    io.R8 := io.rgb656(15 downto 11)  ## io.rgb656(15 downto 13)
+    io.G8 := io.rgb656(10 downto 5) ## io.rgb656(10 downto 9)
+    io.B8 := io.rgb656(4 downto 0) ## io.rgb656(4 downto 2)
 }
 
 case class BasicBall(val SX: BigInt, val SY: BigInt) extends Component
