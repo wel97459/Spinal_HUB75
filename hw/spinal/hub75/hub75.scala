@@ -148,25 +148,41 @@ case class hub75_top() extends Component {
 
 
 /***-Registers-***/
-    val a = Reg(UInt(8 bits)) init(0)
-
+    val hub_address = Counter(64)
 
 /***-Wires-***/
     val rgb565U = Bits(16 bits)
     val rgb565L = Bits(16 bits)
 
+    val rotateFIFOs = False
+    val rotateClk = False
+    val LoadFIFO = False
+    val FlushFIFO = False
+    val rotateClk_D1 = RegNext(rotateClk)
+
 /***-Streams-***/
     val UpperLine = StreamFifo(
       dataType = Bits(16 bits),
-      depth    = 64
+      depth    = 65
     )
 
     val LowerLine = StreamFifo(
       dataType = Bits(16 bits),
-      depth    = 64
+      depth    = 65
     )
 
-    val Upper = Stream(Bits(6 bits))
+    UpperLine.io.flush := False
+    LowerLine.io.flush := False
+
+    val UpperIn = Stream(Bits(16 bits))
+    val LowerIn = Stream(Bits(16 bits))
+    val UpperOut = Stream(Bits(16 bits))
+    val LowerOut = Stream(Bits(16 bits))
+
+    UpperLine.io.pop  >> UpperOut
+    UpperLine.io.push << UpperIn
+    LowerLine.io.pop  >> LowerOut
+    LowerLine.io.push << LowerIn
 
 /***-Blocks-***/
     val cscU = new RGB565toRGB888()
@@ -176,8 +192,6 @@ case class hub75_top() extends Component {
 
     val glow = new PWM_Test(0)
     val hub = new hub75_Test()
-
-    val ball = new BasicBall(64, 63) 
     
     glow.io.start := False
     glow.io.Wait := False
@@ -185,25 +199,11 @@ case class hub75_top() extends Component {
     hub.io.start := False
     hub.io.Wait := False
 
-    ball.io.reset := False
+    val demo = new BallDemo(64, 64)
+    demo.io.clear := False 
 /***-Routing-***/
-    val ballU = False 
-    val ballL = False
-    val grid = False
+
     val X = 64 - hub.io.X
-
-    when(X === ball.io.X && a(4 downto 0) === ball.io.Y && ball.io.Y < 32){
-        ballU := True
-    }
-
-    when(X === ball.io.X && a(4 downto 0) === (ball.io.Y - 32) && ball.io.Y > 31){
-        ballL := True
-    }
-
-    when(X(2) ^ a(2))
-    {
-        grid := True
-    }
 
     io.hub75.Sclk := hub.io.Sclk
     io.hub75.Latch := hub.io.Latch
@@ -218,34 +218,92 @@ case class hub75_top() extends Component {
 
     io.hub75.Blank := !glow.io.blank
 
-    io.hub75.Address := a(4 downto 0).asBits
+    io.hub75.Address := hub_address.asBits.resize(5)
     
 /***-LutChains-***/
-    when(ballU){
-        rgb565U := B"16'hFFFF"
-   // }elsewhen(grid){
-    }otherwise{
-        rgb565U := ((64 - hub.io.X).asBits >> 1).resize(5) ## a(4 downto 0).asBits ## B"0" ## B"00000"
-    }
-
-    when(ballL){
-        rgb565L := B"16'hFFFF"
-//    }elsewhen(grid){
-    }otherwise{
-        rgb565L := ((64 - hub.io.X).asBits >> 1).resize(5) ## B"000000" ## a(4 downto 0).asBits
-    }
+        rgb565U := UpperOut.payload
+        rgb565L := LowerOut.payload
 
 /***-Logic-***/
-    ball.io.update := (a === 64).rise()
+
+
+    when(rotateFIFOs){
+        UpperOut.ready := rotateClk
+        UpperIn.valid := rotateClk
+        UpperIn.payload := UpperOut.payload
+
+        LowerOut.ready := rotateClk
+        LowerIn.valid := rotateClk
+        LowerIn.payload := LowerOut.payload
+
+        demo.io.LowerOut.ready := False
+        demo.io.UpperOut.ready := False
+    }elsewhen(FlushFIFO){
+        UpperOut.ready := rotateClk
+
+        demo.io.UpperOut.ready := rotateClk
+        UpperIn.valid := rotateClk
+        UpperIn.payload := demo.io.UpperOut.payload
+
+        LowerOut.ready := rotateClk
+
+        demo.io.LowerOut.ready := rotateClk
+        LowerIn.valid := rotateClk
+        LowerIn.payload := demo.io.LowerOut.payload
+    }elsewhen(LoadFIFO){
+        UpperOut.ready := False
+
+        demo.io.UpperOut.ready := True
+        UpperIn.valid := demo.io.UpperOut.valid
+        UpperIn.payload := demo.io.UpperOut.payload
+
+        LowerOut.ready := False
+
+        demo.io.LowerOut.ready := True
+        LowerIn.valid := demo.io.LowerOut.valid
+        LowerIn.payload := demo.io.LowerOut.payload
+    }otherwise{
+        UpperOut.ready := False
+
+        UpperIn.valid := False
+        UpperIn.payload := B"16'h0000"
+
+        LowerOut.ready := False
+
+        LowerIn.valid := False
+        LowerIn.payload := B"16'h0000"
+
+        demo.io.LowerOut.ready := False
+        demo.io.UpperOut.ready := False
+    }
 
     val InterfaceFMS = new StateMachine {
         /***-FMS-***/
         val Reset: State = new StateDelay(10) with EntryPoint {
             whenIsActive{
-                ball.io.reset := True
+                hub_address.clear()
+                UpperLine.io.flush := True
+                LowerLine.io.flush := True
+                demo.io.clear := True
             }
             whenCompleted {
-                goto(SendData)
+                goto(WaitForLine)
+            }
+        }
+        val WaitForLine: State = new State {
+            whenIsActive{
+                when(demo.io.lineReady){
+                    goto(FillLineFIFO) 
+                }
+            }
+        }
+        val FillLineFIFO: State = new State {
+            whenIsActive{
+                when(UpperLine.io.occupancy === 64 && LowerLine.io.occupancy === 64){
+                    goto(SendData)
+                }otherwise{
+                    LoadFIFO := True
+                }
             }
         }
 
@@ -253,6 +311,7 @@ case class hub75_top() extends Component {
             whenIsActive{
                 glow.io.Wait := True
                 hub.io.start := True
+                rotateFIFOs := True
                 goto(SendDataWait)
             }
         }
@@ -260,9 +319,17 @@ case class hub75_top() extends Component {
         val SendDataWait: State = new  State {
             whenIsActive{
                 glow.io.Wait := True
+
+                when(glow.io.mask === B"00000001"){
+                    FlushFIFO := True
+                }otherwise{
+                    rotateFIFOs := True
+                }
+                
+                rotateClk := hub.io.Sclk
                 when(hub.io.done){
                     when(glow.io.mask === B"00000001"){
-                        a := a + 1
+                        hub_address.increment()
                     }
                     goto(RunPWM)
                 }
@@ -287,10 +354,25 @@ case class RGB565toRGB888() extends Component
         val G8 = out Bits(8 bits)
         val B8 = out Bits(8 bits)
     }
+    val R8 = (io.rgb656(15 downto 11)  ## io.rgb656(15 downto 13))
+    val G8 = (io.rgb656(10 downto 5) ## io.rgb656(10 downto 9))
+    val B8 = (io.rgb656(4 downto 0) ## io.rgb656(4 downto 2))
+    io.R8 := R8
+    io.G8 := G8
+    io.B8 := B8
+}
 
-    io.R8 := io.rgb656(15 downto 11)  ## io.rgb656(15 downto 13)
-    io.G8 := io.rgb656(10 downto 5) ## io.rgb656(10 downto 9)
-    io.B8 := io.rgb656(4 downto 0) ## io.rgb656(4 downto 2)
+case class RGB565toB16() extends Component
+{
+    val io = new Bundle {
+        val R5 = in Bits(5 bits)
+        val G6 = in Bits(6 bits)
+        val B5 = in Bits(5 bits)
+        val rgb656 = out Bits(16 bits)
+    }
+    val rgb656 = io.R5 ## io.G6 ## io.B5
+    io.rgb656 := rgb656
+
 }
 
 case class BasicBall(val SX: BigInt, val SY: BigInt) extends Component
@@ -337,6 +419,129 @@ case class BasicBall(val SX: BigInt, val SY: BigInt) extends Component
     }
 }
 
+case class BallDemo(val SX: BigInt, val SY: BigInt) extends Component
+{
+    val io = new Bundle {
+        val clear = in Bool()
+        val lineReady = out Bool()
+        val UpperOut = master Stream (Bits(16 bit))
+        val LowerOut = master Stream (Bits(16 bit))
+    }
+
+/***-Defines-***/    
+
+/***-Registers-***/
+    val X = Counter(SX)
+    val Y = Counter(SY/2)
+/***-Wires-***/
+    val ballU = False
+    val ballL = False
+/***-Streams-***/
+    val UpperLine = StreamFifo(
+      dataType = Bits(16 bits),
+      depth    = 64
+    )
+
+    val LowerLine = StreamFifo(
+      dataType = Bits(16 bits),
+      depth    = 64
+    )
+
+    val UpperIn = Stream(Bits(16 bits))
+    val LowerIn = Stream(Bits(16 bits))
+
+/***-Blocks-***/
+    val bball = new BasicBall(63,62)
+    val rgb565U = new RGB565toB16()
+    val rgb565L = new RGB565toB16()
+
+/***-Routing-***/
+    UpperLine.io.push << UpperIn
+    LowerLine.io.push << LowerIn
+    UpperLine.io.pop  >> io.UpperOut
+    LowerLine.io.pop >> io.LowerOut
+
+    UpperIn.payload := rgb565U.io.rgb656
+    LowerIn.payload := rgb565L.io.rgb656
+
+    UpperIn.valid := False
+    LowerIn.valid := False
+
+    UpperLine.io.flush := False
+    LowerLine.io.flush := False
+/***-LutChains-***/
+    val grid = (Y(2) ^ X(2))
+
+    //rgb565U.io.G6 := Y.resize(6).asBits
+/***-IO stuff-***/
+    io.lineReady := UpperLine.io.occupancy === 64 && LowerLine.io.occupancy === 64
+    bball.io.reset := False
+    bball.io.update := False
+/***-Logic-***/
+    when(X >= bball.io.X && X <= bball.io.X && Y >= bball.io.Y.resize(5) && Y <= bball.io.Y.resize(5) && bball.io.Y < 32)
+    {
+        ballU := True
+    }
+
+    when(X >= bball.io.X && X <= bball.io.X && Y >= bball.io.Y.resize(5) && Y <= bball.io.Y.resize(5) && bball.io.Y > 31)
+    {
+        ballL := True
+    }
+
+    when(ballU)
+    {
+        rgb565U.io.R5 := B"11111"
+        rgb565U.io.G6 := B"111111"
+        rgb565U.io.B5 := B"11111"
+
+    }elsewhen(grid){
+        rgb565U.io.R5 := 1
+        rgb565U.io.G6 := 0
+        rgb565U.io.B5 := 0
+    }otherwise{
+        rgb565U.io.R5 := 0
+        rgb565U.io.G6 := 0
+        rgb565U.io.B5 := 0
+    }
+
+    when(ballL)
+    {
+        rgb565L.io.R5 := B"11111"
+        rgb565L.io.G6 := B"111111"
+        rgb565L.io.B5 := B"11111"
+    }elsewhen(grid){
+        rgb565L.io.R5 := 1
+        rgb565L.io.G6 := 0
+        rgb565L.io.B5 := 0
+    }otherwise{
+        rgb565L.io.R5 := 0
+        rgb565L.io.G6 := 0
+        rgb565L.io.B5 := 0
+    }
+
+    when(io.clear)
+    {
+        X.clear()
+        Y.clear()
+        UpperLine.io.flush := True
+        LowerLine.io.flush := True
+        bball.io.reset := True
+    }otherwise{
+        when(UpperIn.ready && LowerIn.ready)
+        {
+            UpperIn.valid := True
+            LowerIn.valid := True
+            X.increment()
+            when(X.willOverflow){
+                Y.increment()
+                when(Y.willOverflow){
+                    bball.io.update := True
+                }
+            }
+        }
+    }
+}
+
 object Hub75Sim extends App {
     Config.sim.compile(hub75_top()).doSim { dut =>
         //Fork a process to generate the reset and the clock on the dut
@@ -349,7 +554,7 @@ object Hub75Sim extends App {
                 dut.clockDomain.waitRisingEdge()
 
                 c += 1
-                if(c > 65536){
+                if(c > 65536*2){
                     loop.break;
                 }
             }

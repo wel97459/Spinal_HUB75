@@ -1,32 +1,54 @@
 [*]
-[*] GTKWave Analyzer v3.3.122 (w)1999-2024 BSI
-[*] Sun Jul  6 01:17:21 2025
+[*] GTKWave Analyzer v3.3.116 (w)1999-2023 BSI
+[*] Thu Jul 10 22:46:35 2025
 [*]
-[dumpfile] "/home/winston/projects/SpinalHDL/Spinal_HUB75/simWorkspace/hub75_top/test/wave.fst"
-[dumpfile_mtime] "Sun Jul  6 01:13:17 2025"
-[dumpfile_size] 12577
-[savefile] "/home/winston/projects/SpinalHDL/Spinal_HUB75/hub_top.gtkw"
-[timestart] 0
-[size] 1239 644
+[dumpfile] "/home/winston/Projects/SpinalHDL/HUB75/simWorkspace/hub75_top/test/wave.fst"
+[dumpfile_mtime] "Thu Jul 10 17:07:14 2025"
+[dumpfile_size] 30055
+[savefile] "/home/winston/Projects/SpinalHDL/HUB75/hub_top.gtkw"
+[timestart] 52484
+[size] 3840 2112
 [pos] -1 -1
-*0.000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-10.000000 56252 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] TOP.
 [treeopen] TOP.hub75_top.
-[sst_width] 278
-[signals_width] 182
-[sst_expanded] 1
-[sst_vpaned_height] 159
+[sst_width] 538
+[signals_width] 382
+[sst_expanded] 0
+[sst_vpaned_height] 160
 @28
 TOP.reset
 TOP.clk
 TOP.io_hub75_Sclk
 TOP.io_hub75_Latch
 TOP.io_hub75_Blank
+@29
+TOP.hub75_top.io_hub75_RGB0_R
+@200
+-Top
+@22
+TOP.hub75_top.hub_address_value[5:0]
+@200
+-UpperFiFo
+@22
+TOP.hub75_top.UpperLine.io_occupancy[6:0]
+TOP.hub75_top.UpperIn_payload[15:0]
+@28
+TOP.hub75_top.UpperIn_ready
+TOP.hub75_top.UpperIn_valid
+@22
+TOP.hub75_top.UpperOut_payload[15:0]
+@28
+TOP.hub75_top.UpperOut_ready
+TOP.hub75_top.UpperOut_valid
+@22
+TOP.hub75_top.cscU.io_G8[7:0]
+@28
+TOP.hub75_top.io_hub75_RGB0_G
 @200
 -glow
 @22
-TOP.hub75_top.glow.bitmask[8:0]
-TOP.hub75_top.glow.bitmask_next[8:0]
+TOP.hub75_top.glow.bitmask[7:0]
 TOP.hub75_top.glow.counter_value[15:0]
 @28
 TOP.hub75_top.glow.io_blank
@@ -37,8 +59,35 @@ TOP.hub75_top.glow.io_start
 @22
 TOP.hub75_top.hub.counter_value[7:0]
 @28
-TOP.hub75_top.hub.io_Start
-@29
+TOP.hub75_top.hub.io_start
 TOP.hub75_top.hub.io_done
+@200
+-Demo
+@c00024
+TOP.hub75_top.demo.UpperLine_io_occupancy[6:0]
+@28
+(0)TOP.hub75_top.demo.UpperLine_io_occupancy[6:0]
+(1)TOP.hub75_top.demo.UpperLine_io_occupancy[6:0]
+(2)TOP.hub75_top.demo.UpperLine_io_occupancy[6:0]
+(3)TOP.hub75_top.demo.UpperLine_io_occupancy[6:0]
+(4)TOP.hub75_top.demo.UpperLine_io_occupancy[6:0]
+(5)TOP.hub75_top.demo.UpperLine_io_occupancy[6:0]
+(6)TOP.hub75_top.demo.UpperLine_io_occupancy[6:0]
+@1401200
+-group_end
+@22
+TOP.hub75_top.demo.UpperIn_payload[15:0]
+@28
+TOP.hub75_top.demo.UpperIn_ready
+TOP.hub75_top.demo.UpperIn_valid
+@22
+TOP.hub75_top.demo.UpperLine_io_pop_payload[15:0]
+TOP.hub75_top.demo.io_UpperOut_payload[15:0]
+@28
+TOP.hub75_top.demo.io_UpperOut_ready
+TOP.hub75_top.demo.io_UpperOut_valid
+@24
+TOP.hub75_top.demo.X_value[5:0]
+TOP.hub75_top.demo.Y_value[4:0]
 [pattern_trace] 1
 [pattern_trace] 0
