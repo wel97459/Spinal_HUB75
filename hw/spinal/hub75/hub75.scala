@@ -126,6 +126,14 @@ case class hub75_Test() extends Component {
 
 case class hub75_top() extends Component {
     val io = new Bundle {
+        val clear = out Bool()
+        val RamInterface = new Bundle
+        {
+            val Ready = out Bool()
+            val Valid = in Bool()
+            val Address = out Bits(16 bit)
+            val DataIn  = in Bits(16 bit)
+        }
         val hub75 = new Bundle {
             val RGB0 = new Bundle {
                 val R = out Bool()
@@ -201,10 +209,17 @@ case class hub75_top() extends Component {
 
     val demo = new BallDemo(64, 64)
     demo.io.clear := False 
+
+
+    // val displayBuffer = new RamInit("./data/test.bin", 16, 16)
+    // val demoAddrLast = RegNext(demo.io.RamInterface.Address)
+    // val demoReadyLast = RegNext(demo.io.RamInterface.Ready)
+
 /***-Routing-***/
 
     val X = 64 - hub.io.X
 
+    io.clear := False
     io.hub75.Sclk := hub.io.Sclk
     io.hub75.Latch := hub.io.Latch
 
@@ -219,6 +234,15 @@ case class hub75_top() extends Component {
     io.hub75.Blank := !glow.io.blank
 
     io.hub75.Address := hub_address.asBits.resize(5)
+
+    io.RamInterface <> demo.io.RamInterface
+    // displayBuffer.io.addra := demo.io.RamInterface.Address
+    // demo.io.RamInterface.DataIn := displayBuffer.io.douta
+    // demo.io.RamInterface.Valid := (demoAddrLast === demo.io.RamInterface.Address) && demoReadyLast
+    // displayBuffer.io.dina := 0
+    // displayBuffer.io.ena := True
+    // displayBuffer.io.wea(0) := False
+
     
 /***-LutChains-***/
         rgb565U := UpperOut.payload
@@ -285,6 +309,7 @@ case class hub75_top() extends Component {
                 UpperLine.io.flush := True
                 LowerLine.io.flush := True
                 demo.io.clear := True
+                io.clear := True
             }
             whenCompleted {
                 goto(WaitForLine)
@@ -426,6 +451,14 @@ case class BallDemo(val SX: BigInt, val SY: BigInt) extends Component
         val lineReady = out Bool()
         val UpperOut = master Stream (Bits(16 bit))
         val LowerOut = master Stream (Bits(16 bit))
+
+        val RamInterface = new Bundle
+        {
+            val Ready = out Bool()
+            val Valid = in Bool()
+            val Address = out Bits(16 bit)
+            val DataIn  = in Bits(16 bit)
+        }
     }
 
 /***-Defines-***/    
@@ -433,9 +466,11 @@ case class BallDemo(val SX: BigInt, val SY: BigInt) extends Component
 /***-Registers-***/
     val X = Counter(SX)
     val Y = Counter(SY/2)
+    val Addr = CounterUpDownSet(16384) 
+
 /***-Wires-***/
-    val ballU = False
-    val ballL = False
+    val AddrSwitch = False
+
 /***-Streams-***/
     val UpperLine = StreamFifo(
       dataType = Bits(16 bits),
@@ -451,9 +486,6 @@ case class BallDemo(val SX: BigInt, val SY: BigInt) extends Component
     val LowerIn = Stream(Bits(16 bits))
 
 /***-Blocks-***/
-    val bball = new BasicBall(63,62)
-    val rgb565U = new RGB565toB16()
-    val rgb565L = new RGB565toB16()
 
 /***-Routing-***/
     UpperLine.io.push << UpperIn
@@ -461,81 +493,94 @@ case class BallDemo(val SX: BigInt, val SY: BigInt) extends Component
     UpperLine.io.pop  >> io.UpperOut
     LowerLine.io.pop >> io.LowerOut
 
-    UpperIn.payload := rgb565U.io.rgb656
-    LowerIn.payload := rgb565L.io.rgb656
+    UpperIn.payload := io.RamInterface.DataIn
+    LowerIn.payload := io.RamInterface.DataIn
 
     UpperIn.valid := False
     LowerIn.valid := False
 
     UpperLine.io.flush := False
     LowerLine.io.flush := False
-/***-LutChains-***/
-    val grid = (Y(2) ^ X(2))
 
-    //rgb565U.io.G6 := Y.resize(6).asBits
+/***-LutChains-***/
+    val addrLower = Addr.value + U"16'h0800"
+    val Addrout =  AddrSwitch ? addrLower | Addr
 /***-IO stuff-***/
     io.lineReady := UpperLine.io.occupancy === 64 && LowerLine.io.occupancy === 64
-    bball.io.reset := False
-    bball.io.update := False
+    io.RamInterface.Address := Addrout.asBits
+    io.RamInterface.Ready := False
+
 /***-Logic-***/
-    when(X >= bball.io.X && X <= bball.io.X && Y >= bball.io.Y.resize(5) && Y <= bball.io.Y.resize(5) && bball.io.Y < 32)
-    {
-        ballU := True
-    }
 
-    when(X >= bball.io.X && X <= bball.io.X && Y >= bball.io.Y.resize(5) && Y <= bball.io.Y.resize(5) && bball.io.Y > 31)
-    {
-        ballL := True
-    }
+    val InterfaceFMS = new StateMachine {
+        /***-FMS-***/
+        val Reset: State = new State with EntryPoint {
+            whenIsActive{
+                X.clear()
+                Y.clear()
+                Addr.setValue(0)
+                UpperLine.io.flush := True
+                LowerLine.io.flush := True
+                when(!io.clear){
+                    goto(Start)
+                }
+            }
+        }
 
-    when(ballU)
-    {
-        rgb565U.io.R5 := B"11111"
-        rgb565U.io.G6 := B"111111"
-        rgb565U.io.B5 := B"11111"
-
-    }elsewhen(grid){
-        rgb565U.io.R5 := 1
-        rgb565U.io.G6 := 0
-        rgb565U.io.B5 := 0
-    }otherwise{
-        rgb565U.io.R5 := 0
-        rgb565U.io.G6 := 0
-        rgb565U.io.B5 := 0
-    }
-
-    when(ballL)
-    {
-        rgb565L.io.R5 := B"11111"
-        rgb565L.io.G6 := B"111111"
-        rgb565L.io.B5 := B"11111"
-    }elsewhen(grid){
-        rgb565L.io.R5 := 1
-        rgb565L.io.G6 := 0
-        rgb565L.io.B5 := 0
-    }otherwise{
-        rgb565L.io.R5 := 0
-        rgb565L.io.G6 := 0
-        rgb565L.io.B5 := 0
-    }
-
-    when(io.clear)
-    {
-        X.clear()
-        Y.clear()
-        UpperLine.io.flush := True
-        LowerLine.io.flush := True
-        bball.io.reset := True
-    }otherwise{
-        when(UpperIn.ready && LowerIn.ready)
+        val Start: State = new State
         {
-            UpperIn.valid := True
-            LowerIn.valid := True
-            X.increment()
-            when(X.willOverflow){
-                Y.increment()
-                when(Y.willOverflow){
-                    bball.io.update := True
+            whenIsActive{
+                when(io.clear){
+                    goto(Reset)
+                }otherwise{
+                    when(UpperIn.ready && LowerIn.ready){
+                        goto(GetUpperPixel)
+                    }
+                }
+            }
+        }
+
+        val GetUpperPixel: State = new State
+        {
+            whenIsActive{
+                when(io.clear){
+                    goto(Reset)
+                }otherwise{
+                    io.RamInterface.Ready := True
+
+                    when(io.RamInterface.Valid)
+                    {
+                        UpperIn.valid := True
+                        goto(GetLowerPixel)
+                    }
+                }
+            }
+        }
+
+        val GetLowerPixel: State = new State{
+            whenIsActive{
+                when(io.clear){
+                    goto(Reset)
+                }otherwise{
+                    io.RamInterface.Ready := True
+                    AddrSwitch := True
+                    when(io.RamInterface.Valid)
+                    {
+                        LowerIn.valid := True
+                        X.increment()
+                        Addr.increment()
+                        when(X.willOverflow){
+                            Y.increment()
+                            when(Y.willOverflow){
+                                Addr.setValue(0)
+                            }
+                        }
+                        when(UpperIn.ready && LowerIn.ready){
+                            goto(GetUpperPixel)
+                        }otherwise{
+                            goto(Start)
+                        }
+                    }
                 }
             }
         }
