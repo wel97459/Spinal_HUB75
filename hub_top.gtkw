@@ -1,20 +1,20 @@
 [*]
 [*] GTKWave Analyzer v3.3.116 (w)1999-2023 BSI
-[*] Thu Jul 10 22:46:35 2025
+[*] Fri Jul 11 05:45:34 2025
 [*]
 [dumpfile] "/home/winston/Projects/SpinalHDL/HUB75/simWorkspace/hub75_top/test/wave.fst"
-[dumpfile_mtime] "Thu Jul 10 17:07:14 2025"
-[dumpfile_size] 30055
+[dumpfile_mtime] "Fri Jul 11 05:43:25 2025"
+[dumpfile_size] 128578
 [savefile] "/home/winston/Projects/SpinalHDL/HUB75/hub_top.gtkw"
-[timestart] 52484
+[timestart] 1526860
 [size] 3840 2112
 [pos] -1 -1
-*-10.000000 56252 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-13.000000 105115 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] TOP.
 [treeopen] TOP.hub75_top.
 [sst_width] 538
 [signals_width] 382
-[sst_expanded] 0
+[sst_expanded] 1
 [sst_vpaned_height] 160
 @28
 TOP.reset
@@ -22,7 +22,6 @@ TOP.clk
 TOP.io_hub75_Sclk
 TOP.io_hub75_Latch
 TOP.io_hub75_Blank
-@29
 TOP.hub75_top.io_hub75_RGB0_R
 @200
 -Top
@@ -63,6 +62,10 @@ TOP.hub75_top.hub.io_start
 TOP.hub75_top.hub.io_done
 @200
 -Demo
+@28
+TOP.hub75_top.demo.io_clear
+@820
+TOP.hub75_top.demo.InterfaceFMS_stateReg_string[103:0]
 @c00024
 TOP.hub75_top.demo.UpperLine_io_occupancy[6:0]
 @28
@@ -80,6 +83,8 @@ TOP.hub75_top.demo.UpperIn_payload[15:0]
 @28
 TOP.hub75_top.demo.UpperIn_ready
 TOP.hub75_top.demo.UpperIn_valid
+@29
+TOP.hub75_top.demo.LowerIn_valid
 @22
 TOP.hub75_top.demo.UpperLine_io_pop_payload[15:0]
 TOP.hub75_top.demo.io_UpperOut_payload[15:0]
@@ -89,5 +94,12 @@ TOP.hub75_top.demo.io_UpperOut_valid
 @24
 TOP.hub75_top.demo.X_value[5:0]
 TOP.hub75_top.demo.Y_value[4:0]
+@22
+TOP.hub75_top.demo.io_RamInterface_Address[15:0]
+TOP.hub75_top.demo.io_RamInterface_DataIn[15:0]
+@28
+TOP.hub75_top.demo.AddrSwitch
+TOP.hub75_top.demo.io_RamInterface_Ready
+TOP.hub75_top.demo.io_RamInterface_Valid
 [pattern_trace] 1
 [pattern_trace] 0

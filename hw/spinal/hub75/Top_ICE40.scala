@@ -2,6 +2,7 @@ package hub75
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.fsm._
 import spinal.lib.blackbox.lattice.ice40._
 
 import MySpinalHardware._
@@ -90,16 +91,96 @@ class Top_ICE40() extends Component {
 
     val Core12 = new ClockingArea(clk12Domain)
     {
-            val hub = new hub75_top()
-            io.hub75 <> hub.io.hub75
+        val hub = new hub75_top()
+        io.hub75 <> hub.io.hub75
 
-            //val ram = new SPRAM256KA()
-            val prog = new ProgrammingInterface(57600)
-            prog.io.UartRX := io.serial_rxd
-            io.serial_txd := prog.io.UartTX
-            prog.io.FlagIn := 0
-            prog.io.RamInterface.DataIn := 0
-            prog.io.keys.ready := True
+        val hubAccess = False 
+        val AddrLast = RegNext(hub.io.RamInterface.Address)
+        val ReadyLast = RegNext(hub.io.RamInterface.Ready && hubAccess)
+
+        val prog = new ProgrammingInterface(57600)
+        prog.io.UartRX := io.serial_rxd
+        io.serial_txd := prog.io.UartTX
+        prog.io.FlagIn := 0
+        prog.io.RamInterface.DataIn := 0
+        prog.io.keys.ready := True
+
+        val serialData = StreamFifo(
+            dataType = Bits(24 bits),
+            depth    = 8
+        )
+
+        val serialDataIn = Stream(Bits(24 bits))
+        val serialDataOut = Stream(Bits(24 bits))
+
+        val spram = new SPRAM256KA()
+        spram.io.POWEROFF := True
+        spram.io.SLEEP := False
+        spram.io.STANDBY := False
+        spram.io.CHIPSELECT := True
+
+        spram.io.WREN := False
+        spram.io.MASKWREN := serialDataOut.payload(8) ? B"1100" | B"0011" 
+        spram.io.DATAIN := ~(serialDataOut.payload(7 downto 0) ## serialDataOut.payload(7 downto 0))
+        spram.io.ADDRESS := hubAccess ? hub.io.RamInterface.Address(13 downto 0) | serialDataOut.payload(22 downto 9)
+        
+        hub.io.RamInterface.DataIn := spram.io.DATAOUT
+        hub.io.RamInterface.Valid := (AddrLast === hub.io.RamInterface.Address) && ReadyLast
+
+        serialData.io.push << serialDataIn
+        serialData.io.pop >> serialDataOut
+
+        serialDataIn.payload := prog.io.RamInterface.Address ## prog.io.RamInterface.DataIn
+        serialDataIn.valid := serialDataIn.ready && prog.io.RamInterface.Write
+
+        serialDataOut.ready := False
+
+        val InterfaceFMS = new StateMachine {
+            /***-FMS-***/
+            val Reset: State = new State with EntryPoint {
+                whenIsActive{
+                    when(!hub.io.clear){
+                        goto(Start)
+                    }
+                }
+            }
+
+            val Start: State = new State
+            {
+                whenIsActive{
+                    when(hub.io.clear){
+                        goto(Reset)
+                    }elsewhen(hub.io.RamInterface.Ready){
+                        goto(HubAccess)
+                    }elsewhen(serialDataOut.valid){
+                        spram.io.WREN := True
+                        goto(CheckSerial)
+                    }
+                }
+            }
+
+            val CheckSerial: State = new State
+            {
+                whenIsActive{
+                    serialDataOut.ready := True
+                    goto(Start)
+                }
+            }
+
+            val HubAccess: State = new State
+            {
+                whenIsActive{
+                    when(hub.io.clear){
+                        goto(Reset)
+                    }elsewhen(hub.io.RamInterface.Ready){
+                        hubAccess := True
+                    }otherwise{
+                        goto(Start)
+                    }
+
+                }
+            }
+        }
     }
 }
 
