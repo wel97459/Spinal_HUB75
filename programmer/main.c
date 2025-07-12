@@ -122,7 +122,7 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    if (set_interface_attribs (fd, B57600) < 0) {
+    if (set_interface_attribs (fd, B115200) < 0) {
         printf("There was a error setting up the port\r\n\r\n");
         return 0;
     }

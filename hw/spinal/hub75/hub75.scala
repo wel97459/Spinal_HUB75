@@ -7,12 +7,12 @@ import spinal.core.sim._
 import scala.util.control.Breaks
 import  MySpinalHardware._
 
-case class PWM_Test(val period: BigInt, val shift: BigInt) extends Component {
+case class PWM_Test() extends Component {
     val io = new Bundle
     {
         val start = in Bool()
         val Wait = in Bool()
-        val mask = out Bits(8 bits)
+        val mask = out Bits(10 bits)
         val blank = out Bool()
         val done = out Bool()
     }
@@ -22,7 +22,7 @@ case class PWM_Test(val period: BigInt, val shift: BigInt) extends Component {
 
 /***-Registers-***/
     val counter = CounterUpDownSet(65536)
-    val bitmask = Reg(Bits(8 bits)) init(0) 
+    val bitmask = Reg(Bits(10 bits)) init(0) 
     val done = Reg(Bool()) init(False)
     val waiting = Reg(Bool()) init(False)
 
@@ -42,21 +42,21 @@ case class PWM_Test(val period: BigInt, val shift: BigInt) extends Component {
 
     
 /***-LutChains-***/
-    val bitmask_next = (bitmask === 0) ? B"10000000" | bitmask(0) ## bitmask(7 downto 1)
+    val bitmask_next = (bitmask === 0) ? B"1000000000" | bitmask(0) ## bitmask(9 downto 1)
 
 /***-Logic-***/
     when(io.start && done)
     {
-        counter.setValue((bitmask << shift).resize(16).asUInt + period)
+        counter.setValue((bitmask).resize(16).asUInt)
         done := False
         bitmask := bitmask_next
-    }elsewhen(bitmask === B"00000000"){
+    }elsewhen(bitmask === B"0000000000"){
         bitmask := bitmask_next
         done := True
     }elsewhen(!io.Wait && counter === 0 && bitmask =/= 0 && !done){
-        counter.setValue((bitmask << shift).resize(16).asUInt + period)
+        counter.setValue((bitmask).resize(16).asUInt)
         bitmask := bitmask_next
-    }elsewhen(counter === 0 && bitmask === B"10000000"){
+    }elsewhen(counter === 0 && bitmask === B"1000000000"){
         done := True
     }elsewhen(counter > 0){
         io.blank := True
@@ -127,6 +127,7 @@ case class hub75_Test() extends Component {
 case class hub75_top() extends Component {
     val io = new Bundle {
         val clear = out Bool()
+        val brightness = in Bits(2 bits)
         val RamInterface = new Bundle
         {
             val Ready = out Bool()
@@ -195,10 +196,14 @@ case class hub75_top() extends Component {
 /***-Blocks-***/
     val cscU = new RGB565toRGB888()
     val cscL = new RGB565toRGB888()
+
+    cscU.io.brightness := io.brightness
+    cscL.io.brightness := io.brightness
+
     cscU.io.rgb656  := rgb565U
     cscL.io.rgb656  := rgb565L
 
-    val glow = new PWM_Test(0, 0)
+    val glow = new PWM_Test()
     val hub = new hub75_Test()
     
     glow.io.start := False
@@ -345,7 +350,7 @@ case class hub75_top() extends Component {
             whenIsActive{
                 glow.io.Wait := True
 
-                when(glow.io.mask === B"00000001"){
+                when(glow.io.mask === B"0000000001"){
                     FlushFIFO := True
                 }otherwise{
                     rotateFIFOs := True
@@ -353,7 +358,7 @@ case class hub75_top() extends Component {
                 
                 rotateClk := hub.io.Sclk
                 when(hub.io.done){
-                    when(glow.io.mask === B"00000001"){
+                    when(glow.io.mask === B"0000000001"){
                         hub_address.increment()
                     }
                     goto(RunPWM)
@@ -374,10 +379,11 @@ case class hub75_top() extends Component {
 case class RGB565toRGB888() extends Component
 {
     val io = new Bundle {
+        val brightness = in Bits(2 bits)
         val rgb656 = in Bits(16 bits)
-        val R8 = out Bits(8 bits)
-        val G8 = out Bits(8 bits)
-        val B8 = out Bits(8 bits)
+        val R8 = out Bits(10 bits)
+        val G8 = out Bits(10 bits)
+        val B8 = out Bits(10 bits)
     }
     // val R8 = ( B"000" ## io.rgb656(15 downto 11))
     // val G8 = ( B"00" ## io.rgb656(10 downto 5))
@@ -388,9 +394,9 @@ case class RGB565toRGB888() extends Component
     val R16 = R8.resize(16).asUInt * R8.resize(16).asUInt
     val G16 = G8.resize(16).asUInt * G8.resize(16).asUInt
     val B16 = B8.resize(16).asUInt * B8.resize(16).asUInt
-    io.R8 := R16(15 downto 8).asBits
-    io.G8 := G16(15 downto 8).asBits
-    io.B8 := B16(15 downto 8).asBits
+    io.R8 := R16(15 downto 6).asBits >> io.brightness.asUInt
+    io.G8 := G16(15 downto 6).asBits >> io.brightness.asUInt
+    io.B8 := B16(15 downto 6).asBits >> io.brightness.asUInt
 }
 
 case class RGB565toB16() extends Component
