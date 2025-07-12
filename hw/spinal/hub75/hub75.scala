@@ -66,7 +66,7 @@ case class PWM_Test() extends Component {
 }
 
 
-case class hub75_Test() extends Component {
+case class hub75_Test(val SX: Int) extends Component {
     val io = new Bundle
     {
         val start = in Bool()
@@ -108,7 +108,7 @@ case class hub75_Test() extends Component {
     {
         done := False
         running := True
-        counter.setValue(64)
+        counter.setValue(SX)
     }elsewhen(counter =/= 0){
         when(clk){
             counter.decrement()
@@ -124,7 +124,7 @@ case class hub75_Test() extends Component {
     }
 }
 
-case class hub75_top() extends Component {
+case class hub75_top(val SX: Int, val SY: Int) extends Component {
     val io = new Bundle {
         val clear = out Bool()
         val brightness = in Bits(2 bits)
@@ -157,7 +157,7 @@ case class hub75_top() extends Component {
 
 
 /***-Registers-***/
-    val hub_address = Counter(64)
+    val hub_address = Counter(SX)
 
 /***-Wires-***/
     val rgb565U = Bits(16 bits)
@@ -172,12 +172,12 @@ case class hub75_top() extends Component {
 /***-Streams-***/
     val UpperLine = StreamFifo(
       dataType = Bits(16 bits),
-      depth    = 65
+      depth    = SX+1
     )
 
     val LowerLine = StreamFifo(
       dataType = Bits(16 bits),
-      depth    = 65
+      depth    = SX+1
     )
 
     UpperLine.io.flush := False
@@ -204,7 +204,7 @@ case class hub75_top() extends Component {
     cscL.io.rgb656  := rgb565L
 
     val glow = new PWM_Test()
-    val hub = new hub75_Test()
+    val hub = new hub75_Test(SX)
     
     glow.io.start := False
     glow.io.Wait := False
@@ -212,7 +212,7 @@ case class hub75_top() extends Component {
     hub.io.start := False
     hub.io.Wait := False
 
-    val demo = new BallDemo(64, 64)
+    val demo = new FifoHandler(SX, SY)
     demo.io.clear := False 
 
 
@@ -222,7 +222,7 @@ case class hub75_top() extends Component {
 
 /***-Routing-***/
 
-    val X = 64 - hub.io.X
+    val X = SX - hub.io.X
 
     io.clear := False
     io.hub75.Sclk := hub.io.Sclk
@@ -329,7 +329,7 @@ case class hub75_top() extends Component {
         }
         val FillLineFIFO: State = new State {
             whenIsActive{
-                when(UpperLine.io.occupancy === 64 && LowerLine.io.occupancy === 64){
+                when(UpperLine.io.occupancy === SX && LowerLine.io.occupancy === SX){
                     goto(SendData)
                 }otherwise{
                     LoadFIFO := True
@@ -456,7 +456,7 @@ case class BasicBall(val SX: BigInt, val SY: BigInt) extends Component
     }
 }
 
-case class BallDemo(val SX: BigInt, val SY: BigInt) extends Component
+case class FifoHandler(val SX: Int, val SY: Int) extends Component
 {
     val io = new Bundle {
         val clear = in Bool()
@@ -486,12 +486,12 @@ case class BallDemo(val SX: BigInt, val SY: BigInt) extends Component
 /***-Streams-***/
     val UpperLine = StreamFifo(
       dataType = Bits(16 bits),
-      depth    = 64
+      depth    = SX
     )
 
     val LowerLine = StreamFifo(
       dataType = Bits(16 bits),
-      depth    = 64
+      depth    = SX
     )
 
     val UpperIn = Stream(Bits(16 bits))
@@ -515,10 +515,10 @@ case class BallDemo(val SX: BigInt, val SY: BigInt) extends Component
     LowerLine.io.flush := False
 
 /***-LutChains-***/
-    val addrLower = Addr.value + U"16'h0800"
+    val addrLower = Addr.value + U"16'h1000"
     val Addrout =  AddrSwitch ? addrLower | Addr
 /***-IO stuff-***/
-    io.lineReady := UpperLine.io.occupancy === 64 && LowerLine.io.occupancy === 64
+    io.lineReady := UpperLine.io.occupancy === SX && LowerLine.io.occupancy === SX
     io.RamInterface.Address := Addrout.asBits
     io.RamInterface.Ready := False
 
@@ -600,7 +600,7 @@ case class BallDemo(val SX: BigInt, val SY: BigInt) extends Component
 }
 
 object Hub75Sim extends App {
-    Config.sim.compile(hub75_top()).doSim { dut =>
+    Config.sim.compile(hub75_top(64,64)).doSim { dut =>
         //Fork a process to generate the reset and the clock on the dut
         dut.clockDomain.forkStimulus(period = 83)
         var c = 0;

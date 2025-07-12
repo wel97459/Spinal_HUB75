@@ -91,7 +91,9 @@ class Top_ICE40() extends Component {
 
     val Core12 = new ClockingArea(clk12Domain)
     {
-        val hub = new hub75_top()
+        val filpBuffer = Reg(Bool()) init(False)
+
+        val hub = new hub75_top(128, 64)
         io.hub75 <> hub.io.hub75
 
         val hubAccess = False 
@@ -122,7 +124,11 @@ class Top_ICE40() extends Component {
         spram.io.WREN := False
         spram.io.MASKWREN := serialDataOut.payload(8) ? B"1100" | B"0011" 
         spram.io.DATAIN := serialDataOut.payload(7 downto 0) ## serialDataOut.payload(7 downto 0)
-        spram.io.ADDRESS := hubAccess ? hub.io.RamInterface.Address(13 downto 0) | serialDataOut.payload(22 downto 9)
+
+        val hubAddr = hub.io.RamInterface.Address(13 downto 0)// | (filpBuffer ? B"14'h2000" | B"14'h0000")
+        val progAddr = serialDataOut.payload(22 downto 9) //| (!filpBuffer ? B"14'h2000" | B"14'h0000")
+
+        spram.io.ADDRESS := hubAccess ? hubAddr | progAddr
         
         hub.io.RamInterface.DataIn := spram.io.DATAOUT
         hub.io.RamInterface.Valid := (AddrLast === hub.io.RamInterface.Address) && ReadyLast
@@ -136,6 +142,11 @@ class Top_ICE40() extends Component {
         serialDataOut.ready := False
 
         hub.io.brightness := prog.io.FlagOut(1 downto 0)
+
+        when(prog.io.FlagOut(2).rise())
+        {
+            filpBuffer := !filpBuffer
+        }
 
         val InterfaceFMS = new StateMachine {
             /***-FMS-***/
