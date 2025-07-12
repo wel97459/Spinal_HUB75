@@ -7,7 +7,7 @@ import spinal.core.sim._
 import scala.util.control.Breaks
 import  MySpinalHardware._
 
-case class PWM_Test(val period: BigInt) extends Component {
+case class PWM_Test(val period: BigInt, val shift: BigInt) extends Component {
     val io = new Bundle
     {
         val start = in Bool()
@@ -47,14 +47,14 @@ case class PWM_Test(val period: BigInt) extends Component {
 /***-Logic-***/
     when(io.start && done)
     {
-        counter.setValue((bitmask << period).resize(16).asUInt)
+        counter.setValue((bitmask << shift).resize(16).asUInt + period)
         done := False
         bitmask := bitmask_next
     }elsewhen(bitmask === B"00000000"){
         bitmask := bitmask_next
         done := True
     }elsewhen(!io.Wait && counter === 0 && bitmask =/= 0 && !done){
-        counter.setValue((bitmask << period).resize(16).asUInt)
+        counter.setValue((bitmask << shift).resize(16).asUInt + period)
         bitmask := bitmask_next
     }elsewhen(counter === 0 && bitmask === B"10000000"){
         done := True
@@ -198,7 +198,7 @@ case class hub75_top() extends Component {
     cscU.io.rgb656  := rgb565U
     cscL.io.rgb656  := rgb565L
 
-    val glow = new PWM_Test(0)
+    val glow = new PWM_Test(0, 0)
     val hub = new hub75_Test()
     
     glow.io.start := False
@@ -379,12 +379,18 @@ case class RGB565toRGB888() extends Component
         val G8 = out Bits(8 bits)
         val B8 = out Bits(8 bits)
     }
+    // val R8 = ( B"000" ## io.rgb656(15 downto 11))
+    // val G8 = ( B"00" ## io.rgb656(10 downto 5))
+    // val B8 = ( B"000" ## io.rgb656(4 downto 0))
     val R8 = (io.rgb656(15 downto 11)  ## io.rgb656(15 downto 13))
     val G8 = (io.rgb656(10 downto 5) ## io.rgb656(10 downto 9))
     val B8 = (io.rgb656(4 downto 0) ## io.rgb656(4 downto 2))
-    io.R8 := R8
-    io.G8 := G8
-    io.B8 := B8
+    val R16 = R8.resize(16).asUInt * R8.resize(16).asUInt
+    val G16 = G8.resize(16).asUInt * G8.resize(16).asUInt
+    val B16 = B8.resize(16).asUInt * B8.resize(16).asUInt
+    io.R8 := R16(15 downto 8).asBits
+    io.G8 := G16(15 downto 8).asBits
+    io.B8 := B16(15 downto 8).asBits
 }
 
 case class RGB565toB16() extends Component

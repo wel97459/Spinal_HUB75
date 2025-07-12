@@ -130,7 +130,7 @@ class Top_ICE40() extends Component {
         serialData.io.push << serialDataIn
         serialData.io.pop >> serialDataOut
 
-        serialDataIn.payload := prog.io.RamInterface.Address ## prog.io.RamInterface.DataIn
+        serialDataIn.payload := prog.io.RamInterface.Address ## prog.io.RamInterface.DataOut
         serialDataIn.valid := serialDataIn.ready && prog.io.RamInterface.Write
 
         serialDataOut.ready := False
