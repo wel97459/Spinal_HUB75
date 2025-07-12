@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
@@ -78,18 +79,6 @@ size_t readport(char *buff, size_t len, int fd)
 }
 
 
-void RGB888ToRGB565(unsigned char *RGB888, uint8_t *RGB565, const int n, const size_t len)
-{
-    int j = 0;
-    for (size_t i = 0; i < len; i+=n)
-    {
-        uint16_t rgb = ((RGB888[i] & 0b11111000) << 8) | ((RGB888[i+1] & 0b11111100) << 3) | (RGB888[i+2]  >> 3);
-        RGB565[j++] = rgb & 0xff;
-        RGB565[j++] = rgb >> 8;
-    }
-    
-}
-
 void waitOk(int fd)
 {
     size_t len;
@@ -105,19 +94,26 @@ void flipShort(unsigned short *s){
     *s = (*s << 8) | (*s >> 8);
 }
 
+void RGB888toRGB565(unsigned char *rgb888, unsigned char *rgb565, const size_t len, const size_t n)
+{
+    size_t j=0;
+    for(size_t i=0; i < len*n; i+=n)
+    {
+        uint16_t r=rgb888[i], g=rgb888[i+1], b=rgb888[i+2];
+        uint16_t rgb = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+        rgb565[j++] = rgb & 0xff;
+        rgb565[j++] = rgb >> 8;
+    }
+}
+
 int main(int argc, char **argv)
 {
-    int x,y,n,ok;
-    ok = stbi_info(argv[2], &x, &y, &n);
-    if(!ok){
-        return 1;
-    }else{
-        printf("Image X: %i, Y: %i, N: %d\n", x , y ,n);
-    }
+
+    int x,y,n;
     unsigned char *data = stbi_load(argv[2], &x, &y, &n, 0);
-    uint8_t *data565 = (uint8_t*)malloc((x*y) * sizeof(uint16_t));
-    RGB888ToRGB565(data, data565, n, (x*y)*n);
-    printf("test: 0x%X\n", data565[0]);
+    unsigned char *data565 = (unsigned char *) malloc((x*y)*sizeof(uint16_t));
+    RGB888toRGB565(data, data565, x*y, n);
+    printf("got here.\n");
 
     int fd;
     fd = open(argv[1], O_RDWR | O_NOCTTY);
@@ -162,7 +158,7 @@ int main(int argc, char **argv)
     }
 
 done:
-    printf("Done.\n");
+    printf("\nDone.\n");
     free(data);
     free(data565);
     close(fd);

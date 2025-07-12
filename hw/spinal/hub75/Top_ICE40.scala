@@ -121,7 +121,7 @@ class Top_ICE40() extends Component {
 
         spram.io.WREN := False
         spram.io.MASKWREN := serialDataOut.payload(8) ? B"1100" | B"0011" 
-        spram.io.DATAIN := ~(serialDataOut.payload(7 downto 0) ## serialDataOut.payload(7 downto 0))
+        spram.io.DATAIN := serialDataOut.payload(7 downto 0) ## serialDataOut.payload(7 downto 0)
         spram.io.ADDRESS := hubAccess ? hub.io.RamInterface.Address(13 downto 0) | serialDataOut.payload(22 downto 9)
         
         hub.io.RamInterface.DataIn := spram.io.DATAOUT
@@ -130,7 +130,7 @@ class Top_ICE40() extends Component {
         serialData.io.push << serialDataIn
         serialData.io.pop >> serialDataOut
 
-        serialDataIn.payload := prog.io.RamInterface.Address ## prog.io.RamInterface.DataIn
+        serialDataIn.payload := prog.io.RamInterface.Address ## prog.io.RamInterface.DataOut
         serialDataIn.valid := serialDataIn.ready && prog.io.RamInterface.Write
 
         serialDataOut.ready := False

@@ -9,10 +9,3 @@ add_executable(${CMAKE_PROJECT_NAME}
 )
 
 target_link_libraries(${CMAKE_PROJECT_NAME} m)
-
-
-# add_executable(Typer
-#   main_type.c
-# )
-
-# target_link_libraries(Typer)
