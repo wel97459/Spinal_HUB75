@@ -132,7 +132,10 @@ int main(int argc, char **argv)
     size_t len = (x*y)*sizeof(uint16_t);
     size_t offset=0;
     char ch[256], c[16];
-
+    if(argc>1){
+        write (fd, argv[3], 4);
+        waitOk(fd);
+    }
     write (fd, "a0000", 6);
     waitOk(fd);
 
@@ -156,7 +159,7 @@ int main(int argc, char **argv)
             waitOk(fd);
         }
     }
-
+    
 done:
     printf("\nDone.\n");
     free(data);
