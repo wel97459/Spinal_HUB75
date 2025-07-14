@@ -7,12 +7,12 @@ import spinal.core.sim._
 import scala.util.control.Breaks
 import  MySpinalHardware._
 
-case class PWM_Test(val period: BigInt, val shift: BigInt) extends Component {
+case class PWM_Test() extends Component {
     val io = new Bundle
     {
         val start = in Bool()
         val Wait = in Bool()
-        val mask = out Bits(8 bits)
+        val mask = out Bits(10 bits)
         val blank = out Bool()
         val done = out Bool()
     }
@@ -22,7 +22,7 @@ case class PWM_Test(val period: BigInt, val shift: BigInt) extends Component {
 
 /***-Registers-***/
     val counter = CounterUpDownSet(65536)
-    val bitmask = Reg(Bits(8 bits)) init(0) 
+    val bitmask = Reg(Bits(10 bits)) init(0) 
     val done = Reg(Bool()) init(False)
     val waiting = Reg(Bool()) init(False)
 
@@ -42,21 +42,21 @@ case class PWM_Test(val period: BigInt, val shift: BigInt) extends Component {
 
     
 /***-LutChains-***/
-    val bitmask_next = (bitmask === 0) ? B"10000000" | bitmask(0) ## bitmask(7 downto 1)
+    val bitmask_next = (bitmask === 0) ? B"1000000000" | bitmask(0) ## bitmask(9 downto 1)
 
 /***-Logic-***/
     when(io.start && done)
     {
-        counter.setValue((bitmask << shift).resize(16).asUInt + period)
+        counter.setValue((bitmask).resize(16).asUInt)
         done := False
         bitmask := bitmask_next
-    }elsewhen(bitmask === B"00000000"){
+    }elsewhen(bitmask === B"0000000000"){
         bitmask := bitmask_next
         done := True
     }elsewhen(!io.Wait && counter === 0 && bitmask =/= 0 && !done){
-        counter.setValue((bitmask << shift).resize(16).asUInt + period)
+        counter.setValue((bitmask).resize(16).asUInt)
         bitmask := bitmask_next
-    }elsewhen(counter === 0 && bitmask === B"10000000"){
+    }elsewhen(counter === 0 && bitmask === B"1000000000"){
         done := True
     }elsewhen(counter > 0){
         io.blank := True
@@ -66,7 +66,7 @@ case class PWM_Test(val period: BigInt, val shift: BigInt) extends Component {
 }
 
 
-case class hub75_Test() extends Component {
+case class hub75_Test(val SX: Int) extends Component {
     val io = new Bundle
     {
         val start = in Bool()
@@ -108,7 +108,7 @@ case class hub75_Test() extends Component {
     {
         done := False
         running := True
-        counter.setValue(64)
+        counter.setValue(SX)
     }elsewhen(counter =/= 0){
         when(clk){
             counter.decrement()
@@ -124,9 +124,10 @@ case class hub75_Test() extends Component {
     }
 }
 
-case class hub75_top() extends Component {
+case class hub75_top(val SX: Int, val SY: Int) extends Component {
     val io = new Bundle {
         val clear = out Bool()
+        val brightness = in Bits(2 bits)
         val RamInterface = new Bundle
         {
             val Ready = out Bool()
@@ -156,7 +157,7 @@ case class hub75_top() extends Component {
 
 
 /***-Registers-***/
-    val hub_address = Counter(64)
+    val hub_address = Counter(SX)
 
 /***-Wires-***/
     val rgb565U = Bits(16 bits)
@@ -171,12 +172,12 @@ case class hub75_top() extends Component {
 /***-Streams-***/
     val UpperLine = StreamFifo(
       dataType = Bits(16 bits),
-      depth    = 65
+      depth    = SX+1
     )
 
     val LowerLine = StreamFifo(
       dataType = Bits(16 bits),
-      depth    = 65
+      depth    = SX+1
     )
 
     UpperLine.io.flush := False
@@ -195,11 +196,15 @@ case class hub75_top() extends Component {
 /***-Blocks-***/
     val cscU = new RGB565toRGB888()
     val cscL = new RGB565toRGB888()
+
+    cscU.io.brightness := io.brightness
+    cscL.io.brightness := io.brightness
+
     cscU.io.rgb656  := rgb565U
     cscL.io.rgb656  := rgb565L
 
-    val glow = new PWM_Test(0, 0)
-    val hub = new hub75_Test()
+    val glow = new PWM_Test()
+    val hub = new hub75_Test(SX)
     
     glow.io.start := False
     glow.io.Wait := False
@@ -207,7 +212,7 @@ case class hub75_top() extends Component {
     hub.io.start := False
     hub.io.Wait := False
 
-    val demo = new BallDemo(64, 64)
+    val demo = new FifoHandler(SX, SY)
     demo.io.clear := False 
 
 
@@ -217,7 +222,7 @@ case class hub75_top() extends Component {
 
 /***-Routing-***/
 
-    val X = 64 - hub.io.X
+    val X = SX - hub.io.X
 
     io.clear := False
     io.hub75.Sclk := hub.io.Sclk
@@ -324,7 +329,7 @@ case class hub75_top() extends Component {
         }
         val FillLineFIFO: State = new State {
             whenIsActive{
-                when(UpperLine.io.occupancy === 64 && LowerLine.io.occupancy === 64){
+                when(UpperLine.io.occupancy === SX && LowerLine.io.occupancy === SX){
                     goto(SendData)
                 }otherwise{
                     LoadFIFO := True
@@ -345,7 +350,7 @@ case class hub75_top() extends Component {
             whenIsActive{
                 glow.io.Wait := True
 
-                when(glow.io.mask === B"00000001"){
+                when(glow.io.mask === B"0000000001"){
                     FlushFIFO := True
                 }otherwise{
                     rotateFIFOs := True
@@ -353,7 +358,7 @@ case class hub75_top() extends Component {
                 
                 rotateClk := hub.io.Sclk
                 when(hub.io.done){
-                    when(glow.io.mask === B"00000001"){
+                    when(glow.io.mask === B"0000000001"){
                         hub_address.increment()
                     }
                     goto(RunPWM)
@@ -374,10 +379,11 @@ case class hub75_top() extends Component {
 case class RGB565toRGB888() extends Component
 {
     val io = new Bundle {
+        val brightness = in Bits(2 bits)
         val rgb656 = in Bits(16 bits)
-        val R8 = out Bits(8 bits)
-        val G8 = out Bits(8 bits)
-        val B8 = out Bits(8 bits)
+        val R8 = out Bits(10 bits)
+        val G8 = out Bits(10 bits)
+        val B8 = out Bits(10 bits)
     }
     // val R8 = ( B"000" ## io.rgb656(15 downto 11))
     // val G8 = ( B"00" ## io.rgb656(10 downto 5))
@@ -388,9 +394,9 @@ case class RGB565toRGB888() extends Component
     val R16 = R8.resize(16).asUInt * R8.resize(16).asUInt
     val G16 = G8.resize(16).asUInt * G8.resize(16).asUInt
     val B16 = B8.resize(16).asUInt * B8.resize(16).asUInt
-    io.R8 := R16(15 downto 8).asBits
-    io.G8 := G16(15 downto 8).asBits
-    io.B8 := B16(15 downto 8).asBits
+    io.R8 := R16(15 downto 6).asBits >> io.brightness.asUInt
+    io.G8 := G16(15 downto 6).asBits >> io.brightness.asUInt
+    io.B8 := B16(15 downto 6).asBits >> io.brightness.asUInt
 }
 
 case class RGB565toB16() extends Component
@@ -450,7 +456,7 @@ case class BasicBall(val SX: BigInt, val SY: BigInt) extends Component
     }
 }
 
-case class BallDemo(val SX: BigInt, val SY: BigInt) extends Component
+case class FifoHandler(val SX: Int, val SY: Int) extends Component
 {
     val io = new Bundle {
         val clear = in Bool()
@@ -480,12 +486,12 @@ case class BallDemo(val SX: BigInt, val SY: BigInt) extends Component
 /***-Streams-***/
     val UpperLine = StreamFifo(
       dataType = Bits(16 bits),
-      depth    = 64
+      depth    = SX
     )
 
     val LowerLine = StreamFifo(
       dataType = Bits(16 bits),
-      depth    = 64
+      depth    = SX
     )
 
     val UpperIn = Stream(Bits(16 bits))
@@ -509,10 +515,10 @@ case class BallDemo(val SX: BigInt, val SY: BigInt) extends Component
     LowerLine.io.flush := False
 
 /***-LutChains-***/
-    val addrLower = Addr.value + U"16'h0800"
+    val addrLower = Addr.value + U"16'h1000"
     val Addrout =  AddrSwitch ? addrLower | Addr
 /***-IO stuff-***/
-    io.lineReady := UpperLine.io.occupancy === 64 && LowerLine.io.occupancy === 64
+    io.lineReady := UpperLine.io.occupancy === SX && LowerLine.io.occupancy === SX
     io.RamInterface.Address := Addrout.asBits
     io.RamInterface.Ready := False
 
@@ -594,7 +600,7 @@ case class BallDemo(val SX: BigInt, val SY: BigInt) extends Component
 }
 
 object Hub75Sim extends App {
-    Config.sim.compile(hub75_top()).doSim { dut =>
+    Config.sim.compile(hub75_top(64,64)).doSim { dut =>
         //Fork a process to generate the reset and the clock on the dut
         dut.clockDomain.forkStimulus(period = 83)
         var c = 0;

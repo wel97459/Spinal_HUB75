@@ -42,7 +42,7 @@ class Top_ICE40() extends Component {
     noIoPrefix()
     
     val clk48Domain = ClockDomain.internal(name = "Core48",  frequency = FixedFrequency(48 MHz))
-    val clk12Domain = ClockDomain.internal(name = "Core12",  frequency = FixedFrequency(12 MHz))
+    val clk12Domain = ClockDomain.internal(name = "Core12",  frequency = FixedFrequency(19.875 MHz))
     val clk12Domain_reset = ClockDomain.internal(name = "Core12_reset",  frequency = FixedFrequency(12 MHz))
 
     val Core12_reset = new ClockingArea(clk12Domain_reset) {
@@ -54,19 +54,19 @@ class Top_ICE40() extends Component {
     }
 
     // //PLL Settings for 17.625MHz
-    // val PLL_CONFIG = SB_PLL40_PAD_CONFIG(
-    //     DIVR = B"0000", DIVF = B"0101110", DIVQ = B"101", FILTER_RANGE = B"001",
-    //     FEEDBACK_PATH = "SIMPLE", PLLOUT_SELECT = "GENCLK", 
-    //     DELAY_ADJUSTMENT_MODE_FEEDBACK = "FIXED", DELAY_ADJUSTMENT_MODE_RELATIVE = "FIXED", //NO DELAY
-    //     FDA_FEEDBACK = B"0000", FDA_RELATIVE = B"0000", SHIFTREG_DIV_MODE = B"0", ENABLE_ICEGATE = False //NOT USED
-    // ) 
+    val PLL_CONFIG = SB_PLL40_PAD_CONFIG(
+        DIVR = B"0000", DIVF = B"0110100", DIVQ = B"101", FILTER_RANGE = B"001",
+        FEEDBACK_PATH = "SIMPLE", PLLOUT_SELECT = "GENCLK", 
+        DELAY_ADJUSTMENT_MODE_FEEDBACK = "FIXED", DELAY_ADJUSTMENT_MODE_RELATIVE = "FIXED", //NO DELAY
+        FDA_FEEDBACK = B"0000", FDA_RELATIVE = B"0000", SHIFTREG_DIV_MODE = B"0", ENABLE_ICEGATE = False //NOT USED
+    ) 
 
     // //Define PLL
-    // val PLL = new SB_PLL40_CORE(PLL_CONFIG)
+    val PLL = new SB_PLL40_CORE(PLL_CONFIG)
     // //Setup signals of PLL
-    // PLL.BYPASS := False
-    // PLL.RESETB := True
-    // PLL.REFERENCECLK := io.clk_12Mhz
+    PLL.BYPASS := False
+    PLL.RESETB := True
+    PLL.REFERENCECLK := io.clk_12Mhz
 
     //Define the internal oscillator
     val intOSC = new IntOSC()
@@ -78,7 +78,7 @@ class Top_ICE40() extends Component {
     clk12Domain_reset.reset := !io.reset_
 
     //Connect the PLL output of 12Mhz to the 12MHz clock domain
-    clk12Domain.clock := io.clk_12Mhz
+    clk12Domain.clock := PLL.PLLOUTGLOBAL
     clk12Domain.reset := clk12Domain_reset.reset
 
     // //Connect the PLL output of 17.625Mhz to the 17.625MHz clock domain
@@ -91,14 +91,16 @@ class Top_ICE40() extends Component {
 
     val Core12 = new ClockingArea(clk12Domain)
     {
-        val hub = new hub75_top()
+        val filpBuffer = Reg(Bool()) init(False)
+
+        val hub = new hub75_top(128, 64)
         io.hub75 <> hub.io.hub75
 
         val hubAccess = False 
         val AddrLast = RegNext(hub.io.RamInterface.Address)
         val ReadyLast = RegNext(hub.io.RamInterface.Ready && hubAccess)
 
-        val prog = new ProgrammingInterface(57600)
+        val prog = new ProgrammingInterface(115200)
         prog.io.UartRX := io.serial_rxd
         io.serial_txd := prog.io.UartTX
         prog.io.FlagIn := 0
@@ -122,7 +124,11 @@ class Top_ICE40() extends Component {
         spram.io.WREN := False
         spram.io.MASKWREN := serialDataOut.payload(8) ? B"1100" | B"0011" 
         spram.io.DATAIN := serialDataOut.payload(7 downto 0) ## serialDataOut.payload(7 downto 0)
-        spram.io.ADDRESS := hubAccess ? hub.io.RamInterface.Address(13 downto 0) | serialDataOut.payload(22 downto 9)
+
+        val hubAddr = hub.io.RamInterface.Address(13 downto 0)// | (filpBuffer ? B"14'h2000" | B"14'h0000")
+        val progAddr = serialDataOut.payload(22 downto 9) //| (!filpBuffer ? B"14'h2000" | B"14'h0000")
+
+        spram.io.ADDRESS := hubAccess ? hubAddr | progAddr
         
         hub.io.RamInterface.DataIn := spram.io.DATAOUT
         hub.io.RamInterface.Valid := (AddrLast === hub.io.RamInterface.Address) && ReadyLast
@@ -134,6 +140,13 @@ class Top_ICE40() extends Component {
         serialDataIn.valid := serialDataIn.ready && prog.io.RamInterface.Write
 
         serialDataOut.ready := False
+
+        hub.io.brightness := prog.io.FlagOut(1 downto 0)
+
+        when(prog.io.FlagOut(2).rise())
+        {
+            filpBuffer := !filpBuffer
+        }
 
         val InterfaceFMS = new StateMachine {
             /***-FMS-***/

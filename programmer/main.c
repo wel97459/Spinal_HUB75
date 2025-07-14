@@ -78,6 +78,7 @@ size_t readport(char *buff, size_t len, int fd)
     }
 }
 
+
 void waitOk(int fd)
 {
     size_t len;
@@ -121,27 +122,31 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    if (set_interface_attribs (fd, B57600) < 0) {
+    if (set_interface_attribs (fd, B115200) < 0) {
         printf("There was a error setting up the port\r\n\r\n");
         return 0;
     }
 
-    size_t offset = 0;
-    size_t data_len = 0;
-    size_t len=(x*y)*2;
 
+    size_t data_len;
+    size_t len = (x*y)*sizeof(uint16_t);
+    size_t offset=0;
     char ch[256], c[16];
-
+    if(argc>1){
+        write (fd, argv[3], 4);
+        waitOk(fd);
+    }
     write (fd, "a0000", 6);
     waitOk(fd);
 
-    printf("File starting at:%li\n", len);
+    printf("File starting at:%lu\n", len);
     int i = 0;
-    while(len>0){
+    while(data_len>0){
+
         data_len = len > 255 ? 255 : len;
         memcpy(ch, data565+offset, data_len);
-        len-=data_len;
-        offset+=data_len;
+        len -= data_len;
+        offset += data_len;
 
         if(data_len > 0){
             c[0] = '`';
@@ -154,9 +159,11 @@ int main(int argc, char **argv)
             waitOk(fd);
         }
     }
- 
+    
 done:
     printf("\nDone.\n");
+    free(data);
+    free(data565);
     close(fd);
     return 1;
 }
