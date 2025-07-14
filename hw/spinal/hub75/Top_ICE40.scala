@@ -16,12 +16,20 @@ class Top_ICE40() extends Component {
         val reset_ = in Bool()
         val clk_12Mhz = in Bool() //12Mhz CLK
 
-        val serial_txd = out Bool()
-        val serial_rxd = in Bool()
+        // val serial_txd = out Bool()
+        // val serial_rxd = in Bool()
 
-        // val led_red = out Bool()
-        // val led_green = out Bool()
-        // val led_blue = out Bool()
+        val spi = new Bundle
+        {
+            val sck = in Bool()
+            val ss = in Bool()
+            val mosi = in Bool()
+            val miso = out Bool()
+        }
+
+        val led_red = out Bool()
+        val led_green = out Bool()
+        val led_blue = out Bool()
         val hub75 = new Bundle {
             val RGB0 = new Bundle {
                 val R = out Bool()
@@ -91,6 +99,18 @@ class Top_ICE40() extends Component {
 
     val Core12 = new ClockingArea(clk12Domain)
     {
+        val spi = SlaveSPI()
+        spi.io.input.valid := False
+        spi.io.output.ready := True
+        io.spi <> spi.io.spi
+        val led = Reg(Bool()) init(False)
+        when(spi.io.output.payload === B"9'h130")
+        {
+            led := True
+        }elsewhen(spi.io.output.payload === B"9'h131"){
+            led := False
+        }
+
         val filpBuffer = Reg(Bool()) init(False)
 
         val hub = new hub75_top(128, 64)
@@ -100,12 +120,12 @@ class Top_ICE40() extends Component {
         val AddrLast = RegNext(hub.io.RamInterface.Address)
         val ReadyLast = RegNext(hub.io.RamInterface.Ready && hubAccess)
 
-        val prog = new ProgrammingInterface(115200)
-        prog.io.UartRX := io.serial_rxd
-        io.serial_txd := prog.io.UartTX
-        prog.io.FlagIn := 0
-        prog.io.RamInterface.DataIn := 0
-        prog.io.keys.ready := True
+        // val prog = new ProgrammingInterface(115200)
+        // prog.io.UartRX := io.serial_rxd
+        // io.serial_txd := prog.io.UartTX
+        // prog.io.FlagIn := 0
+        // prog.io.RamInterface.DataIn := 0
+        // prog.io.keys.ready := True
 
         val serialData = StreamFifo(
             dataType = Bits(24 bits),
@@ -136,17 +156,22 @@ class Top_ICE40() extends Component {
         serialData.io.push << serialDataIn
         serialData.io.pop >> serialDataOut
 
-        serialDataIn.payload := prog.io.RamInterface.Address ## prog.io.RamInterface.DataOut
-        serialDataIn.valid := serialDataIn.ready && prog.io.RamInterface.Write
-
+        // serialDataIn.payload := prog.io.RamInterface.Address ## prog.io.RamInterface.DataOut
+        // serialDataIn.valid := serialDataIn.ready && prog.io.RamInterface.Write
+        serialDataIn.payload := 0
+        serialDataIn.valid := False
         serialDataOut.ready := False
 
-        hub.io.brightness := prog.io.FlagOut(1 downto 0)
+        hub.io.brightness := 3
+        io.led_green := !led
+        io.led_red := io.spi.ss
+        io.led_blue := io.spi.mosi
 
-        when(prog.io.FlagOut(2).rise())
-        {
-            filpBuffer := !filpBuffer
-        }
+
+        // when(prog.io.FlagOut(2).rise())
+        // {
+        //     filpBuffer := !filpBuffer
+        // }
 
         val InterfaceFMS = new StateMachine {
             /***-FMS-***/
