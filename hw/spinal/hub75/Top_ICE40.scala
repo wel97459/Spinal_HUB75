@@ -93,7 +93,7 @@ class Top_ICE40() extends Component {
     {
         val filpBuffer = Reg(Bool()) init(False)
 
-        val hub = new hub75_top(128, 64)
+        val hub = new hub75_top(128, 64, 0x0800)
         io.hub75 <> hub.io.hub75
 
         val hubAccess = False 
@@ -141,7 +141,7 @@ class Top_ICE40() extends Component {
 
         serialDataOut.ready := False
 
-        hub.io.brightness := prog.io.FlagOut(1 downto 0)
+        hub.io.brightness := ~prog.io.FlagOut(1 downto 0)
 
         when(prog.io.FlagOut(2).rise())
         {
