@@ -99,7 +99,7 @@ int main(int argc, char **argv)
 {
 
     int x,y,n;
-    unsigned char *data = stbi_load(argv[2], &x, &y, &n, 0);
+    unsigned char *data = stbi_load(argv[1], &x, &y, &n, 0);
     unsigned char *data565 = (unsigned char *) malloc((x*y)*sizeof(uint16_t));
     RGB888toRGB565(data, data565, x*y, n);
     printf("Got here.\n");
@@ -110,11 +110,10 @@ int main(int argc, char **argv)
 
     chip_select_fpga();
 	usleep(100000);
-
-	uint8_t command[1] = { 0x50 };
-	mpsse_send_spi(command, 1);
+	uint8_t command[3] = { 0xA0, 0x00, 0x00 };
+	mpsse_send_spi(command, 3);
+	mpsse_send_spi(data565, (x*y)*sizeof(uint16_t));
     release_all();
-    sleep(1);
 done:
     printf("\nDone.\n");
     mpsse_close();

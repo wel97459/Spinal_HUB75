@@ -7,6 +7,8 @@ import spinal.lib.blackbox.lattice.ice40._
 
 import MySpinalHardware._
 
+import spinal.core.sim._
+import scala.util.control.Breaks
 
 
 
@@ -27,9 +29,9 @@ class Top_ICE40() extends Component {
             val miso = out Bool()
         }
 
-        val led_red = out Bool()
+        //val led_red = out Bool()
         val led_green = out Bool()
-        val led_blue = out Bool()
+        //val led_blue = out Bool()
         val hub75 = new Bundle {
             val RGB0 = new Bundle {
                 val R = out Bool()
@@ -101,39 +103,23 @@ class Top_ICE40() extends Component {
     {
         val spi = SlaveSPI()
         spi.io.input.valid := False
-        spi.io.output.ready := True
+        spi.io.output.ready := False
         io.spi <> spi.io.spi
+        
         val led = Reg(Bool()) init(False)
-        when(spi.io.output.payload === B"9'h130")
-        {
-            led := True
-        }elsewhen(spi.io.output.payload === B"9'h131"){
-            led := False
-        }
-
+        val load = Reg(Bool()) init(False)
+        val loadAddress = Reg(Bool()) init(False)
+        val lastPayload = Reg(Bits(8 bits)) init(0)
         val filpBuffer = Reg(Bool()) init(False)
 
-        val hub = new hub75_top(128, 64, 0x0800)
+        val hub = new hub75_top(64, 64, 0x0800)
         io.hub75 <> hub.io.hub75
 
         val hubAccess = False 
         val AddrLast = RegNext(hub.io.RamInterface.Address)
         val ReadyLast = RegNext(hub.io.RamInterface.Ready && hubAccess)
 
-        // val prog = new ProgrammingInterface(115200)
-        // prog.io.UartRX := io.serial_rxd
-        // io.serial_txd := prog.io.UartTX
-        // prog.io.FlagIn := 0
-        // prog.io.RamInterface.DataIn := 0
-        // prog.io.keys.ready := True
-
-        val serialData = StreamFifo(
-            dataType = Bits(24 bits),
-            depth    = 8
-        )
-
-        val serialDataIn = Stream(Bits(24 bits))
-        val serialDataOut = Stream(Bits(24 bits))
+        val progAddr = CounterUpDownSet(0x8000)
 
         val spram = new SPRAM256KA()
         spram.io.POWEROFF := True
@@ -142,30 +128,19 @@ class Top_ICE40() extends Component {
         spram.io.CHIPSELECT := True
 
         spram.io.WREN := False
-        spram.io.MASKWREN := serialDataOut.payload(8) ? B"1100" | B"0011" 
-        spram.io.DATAIN := serialDataOut.payload(7 downto 0) ## serialDataOut.payload(7 downto 0)
+        spram.io.MASKWREN := progAddr(0) ? B"1100" | B"0011" 
+        spram.io.DATAIN := spi.io.output.payload(7 downto 0) ## spi.io.output.payload(7 downto 0)
 
         val hubAddr = hub.io.RamInterface.Address(13 downto 0)// | (filpBuffer ? B"14'h2000" | B"14'h0000")
-        val progAddr = serialDataOut.payload(22 downto 9) //| (!filpBuffer ? B"14'h2000" | B"14'h0000")
 
-        spram.io.ADDRESS := hubAccess ? hubAddr | progAddr
+        spram.io.ADDRESS := hubAccess ? hubAddr | progAddr(14 downto 1).asBits
         
         hub.io.RamInterface.DataIn := spram.io.DATAOUT
         hub.io.RamInterface.Valid := (AddrLast === hub.io.RamInterface.Address) && ReadyLast
 
-        serialData.io.push << serialDataIn
-        serialData.io.pop >> serialDataOut
-
-        // serialDataIn.payload := prog.io.RamInterface.Address ## prog.io.RamInterface.DataOut
-        // serialDataIn.valid := serialDataIn.ready && prog.io.RamInterface.Write
-        serialDataIn.payload := 0
-        serialDataIn.valid := False
-        serialDataOut.ready := False
 
         hub.io.brightness := 3
         io.led_green := !led
-        io.led_red := io.spi.ss
-        io.led_blue := io.spi.mosi
 
 
         // when(prog.io.FlagOut(2).rise())
@@ -186,12 +161,21 @@ class Top_ICE40() extends Component {
             val Start: State = new State
             {
                 whenIsActive{
+                    when(!spi.io.instruction){
+                        load := False
+                        loadAddress := False
+                    }
                     when(hub.io.clear){
                         goto(Reset)
                     }elsewhen(hub.io.RamInterface.Ready){
                         goto(HubAccess)
-                    }elsewhen(serialDataOut.valid){
-                        spram.io.WREN := True
+                    }elsewhen(spi.io.output.valid){
+                        when(load){
+                            spram.io.WREN := True
+                        }
+                        when(spi.io.output.payload === B"9'h1A0"){
+                            loadAddress := True
+                        }
                         goto(CheckSerial)
                     }
                 }
@@ -200,7 +184,24 @@ class Top_ICE40() extends Component {
             val CheckSerial: State = new State
             {
                 whenIsActive{
-                    serialDataOut.ready := True
+                    lastPayload := spi.io.output.payload(7 downto 0)
+                    when(spi.io.output.payload === B"9'h1A0"){
+                        loadAddress := True
+                        progAddr.setValue(0)
+                    }
+                    when(loadAddress){
+                        progAddr.increment()
+                        when(progAddr === 1){
+                            progAddr.setValue((lastPayload(6 downto 0) ## spi.io.output.payload(7 downto 0)).asUInt)
+                            loadAddress := False
+                            load := True
+                        }
+                    }
+                    when(load)
+                    {
+                        progAddr.increment()
+                    }
+                    spi.io.output.ready := True
                     goto(Start)
                 }
             }
@@ -222,6 +223,122 @@ class Top_ICE40() extends Component {
     }
 }
 
+case class testspi() extends Component{
+    val io = new Bundle{
+
+        val spi = new Bundle
+        {
+            val sck = in Bool()
+            val ss = in Bool()
+            val mosi = in Bool()
+            val miso = out Bool()
+        }
+    }
+
+    val spi = SlaveSPI()
+    spi.io.input.valid := False
+    spi.io.output.ready := False
+    io.spi <> spi.io.spi
+    
+    val led = Reg(Bool()) init(False)
+    val load = Reg(Bool()) init(False)
+    val loadAddress = Reg(Bool()) init(False)
+    val lastPayload = Reg(Bits(8 bits)) init(0)
+    
+    val wen = False
+    val progAddr = CounterUpDownSet(0x8000)
+
+    val InterfaceFMS = new StateMachine {
+        /***-FMS-***/
+        val Reset: State = new State with EntryPoint {
+            whenIsActive{
+                goto(Start)
+            }
+        }
+
+        val Start: State = new State
+        {
+            whenIsActive{
+                when(!spi.io.instruction){
+                    load := False
+                    loadAddress := False
+                }
+
+                when(spi.io.output.valid){
+                    when(load){
+                        wen := True
+                    }
+                    when(spi.io.output.payload === B"9'h1A0"){
+                        loadAddress := True
+                    }
+                    goto(CheckSerial)
+                }
+            }
+        }
+
+        val CheckSerial: State = new State
+        {
+            whenIsActive{
+                lastPayload := spi.io.output.payload(7 downto 0)
+                when(spi.io.output.payload === B"9'h1A0"){
+                    loadAddress := True
+                    progAddr.setValue(0)
+                }
+                when(loadAddress){
+                    progAddr.increment()
+                    when(progAddr === 1){
+                        progAddr.setValue((lastPayload(6 downto 0) ## spi.io.output.payload(7 downto 0)).asUInt)
+                        loadAddress := False
+                        load := True
+                    }
+                }
+                spi.io.output.ready := True
+                goto(Start)
+            }
+        }
+    }
+}
+
 object Top_ICE40_Verilog extends App {
   Config.spinal.generateVerilog(new Top_ICE40())
+}
+
+object SlaveSPIFMS_Test extends App {
+    Config.sim.compile(testspi()).doSim { dut =>
+        //Fork a process to generate the reset and the clock on the dut
+        dut.clockDomain.forkStimulus(period = 83)
+        var c = 0;
+        var cc = 0;
+        var a=0;
+        val b = Array(0xa0, 0x10, 0x50, 0x55);
+        val loop = new Breaks;
+        dut.io.spi.ss #= true
+        loop.breakable {
+            while (true) {
+                dut.clockDomain.waitRisingEdge()
+                if(c > 50){
+                    dut.io.spi.ss #= false
+                }
+                if( c % 4 >= 2 && c > 100){
+                    dut.io.spi.sck #= true
+                }else{
+                    dut.io.spi.sck #= false
+                }
+                if( c % 4 == 2 && c > 100){
+
+                    dut.io.spi.mosi #= ((b(a) << cc) & 0x80) == 0x80
+                    if(cc >= 7 && a<3){
+                        cc=0;
+                        a+=1;
+                    }else{
+                        cc+=1;
+                    }
+                }
+                c += 1
+                if(c > 65536){
+                    loop.break;
+                }
+            }
+        }
+    }
 }

@@ -10,8 +10,8 @@ set_io -nowarn serial_rxd 15 # FPGA receive from USB
 set_io -nowarn spi_sck 15  # Shared with the flash
 set_io -nowarn spi_ssn 16  # Connected to SPI flash, drive high unless using SPI flash!
 set_io -nowarn -pullup yes spi_ss  12  # Connected to GPIOL1
-set_io -nowarn spi_mosi 17 # Shared with the flash
-set_io -nowarn spi_miso 14 # Shared with the flash
+set_io -nowarn spi_mosi 14 # Shared with the flash
+set_io -nowarn spi_miso 17 # Shared with the flash
 
 set_frequency clk_12Mhz 12
 set_io -nowarn clk_12Mhz 20
