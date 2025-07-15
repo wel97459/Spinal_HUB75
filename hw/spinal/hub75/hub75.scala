@@ -423,7 +423,7 @@ case class hub75_FifoHandler(val SX: Int, val SY: Int, val LowerOffset: Int) ext
     LowerLine.io.flush := False
 
 /***-LutChains-***/
-    val addrLower = Addr.value + LowerOffset
+    val addrLower = Addr.value + (LowerOffset.intoSInt).asUInt.resize(16)
     val Addrout =  AddrSwitch ? addrLower | Addr
 /***-IO stuff-***/
     io.lineReady := UpperLine.io.occupancy === SX && LowerLine.io.occupancy === SX
