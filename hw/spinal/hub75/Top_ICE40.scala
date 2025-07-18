@@ -111,8 +111,8 @@ class Top_ICE40() extends Component {
         val loadAddress = Reg(Bool()) init(False)
         val lastPayload = Reg(Bits(8 bits)) init(0)
         val filpBuffer = Reg(Bool()) init(False)
-
-        val hub = new hub75_top(64, 64, 0x0800)
+        //val hub = new hub75_top(64, 64, 0x0800)
+        val hub = new hub75_top(128, 64, 0x1000)
         io.hub75 <> hub.io.hub75
 
         val hubAccess = False 
@@ -131,22 +131,17 @@ class Top_ICE40() extends Component {
         spram.io.MASKWREN := progAddr(0) ? B"1100" | B"0011" 
         spram.io.DATAIN := spi.io.output.payload(7 downto 0) ## spi.io.output.payload(7 downto 0)
 
-        val hubAddr = hub.io.RamInterface.Address(13 downto 0)// | (filpBuffer ? B"14'h2000" | B"14'h0000")
+        val hubAddr = hub.io.RamInterface.Address(13 downto 0) | (filpBuffer ? B"14'h2000" | B"14'h0000")
+        val progAddress = progAddr(14 downto 1).asBits | (!filpBuffer ? B"14'h2000" | B"14'h0000")
 
-        spram.io.ADDRESS := hubAccess ? hubAddr | progAddr(14 downto 1).asBits
+        spram.io.ADDRESS := hubAccess ? hubAddr | progAddress
         
         hub.io.RamInterface.DataIn := spram.io.DATAOUT
         hub.io.RamInterface.Valid := (AddrLast === hub.io.RamInterface.Address) && ReadyLast
 
-
-        hub.io.brightness := 3
+        val bright = Reg(Bits(2 bits)) init(0)
+        hub.io.brightness := ~bright
         io.led_green := !led
-
-
-        // when(prog.io.FlagOut(2).rise())
-        // {
-        //     filpBuffer := !filpBuffer
-        // }
 
         val InterfaceFMS = new StateMachine {
             /***-FMS-***/
@@ -188,6 +183,12 @@ class Top_ICE40() extends Component {
                     when(spi.io.output.payload === B"9'h1A0"){
                         loadAddress := True
                         progAddr.setValue(0)
+                    }
+                    when(spi.io.output.payload(8 downto 4) === B"5'h11"){
+                        bright := spi.io.output.payload(1 downto 0)
+                    }
+                    when(spi.io.output.payload === B"9'h120"){
+                        filpBuffer := !filpBuffer
                     }
                     when(loadAddress){
                         progAddr.increment()
