@@ -10,7 +10,7 @@
 #include "stb_image.h"
 #include "mpsse.h"
 
-void RGB888toRGB565(unsigned char *rgb888, unsigned char *rgb565, const size_t len, const size_t n)
+size_t RGB888toRGB565(unsigned char *rgb888, unsigned char *rgb565, const size_t len, const size_t n)
 {
     size_t j=0;
     for(size_t i=0; i < len*n; i+=n)
@@ -20,6 +20,7 @@ void RGB888toRGB565(unsigned char *rgb888, unsigned char *rgb565, const size_t l
         rgb565[j++] = rgb & 0xff;
         rgb565[j++] = rgb >> 8;
     }
+	return len*sizeof(uint16_t);
 }
 
 // ---------------------------------------------------------
@@ -95,29 +96,72 @@ static void chip_select_fpga()
 	set_cs_creset(true, true, false);
 }
 
+void drawBuffer(unsigned char *rgb565, const size_t len)
+{
+    chip_select_fpga();
+	usleep(20000);
+	uint8_t command[3] = { 0xA0, 0x00, 0x00 };
+	mpsse_send_spi(command, 3);
+	mpsse_send_spi(rgb565, len);
+    release_all();
+}
+
+void setBrightness(const char level)
+{
+	chip_select_fpga();
+	usleep(100000);
+	uint8_t command[1] = { 0x10 | level & 0x03};
+	mpsse_send_spi(command, 1);
+    release_all();
+}
+
+void flipBuffer()
+{
+	chip_select_fpga();
+	usleep(20000);
+	uint8_t command[1] = { 0x20};
+	mpsse_send_spi(command, 1);
+    release_all();
+}
+
 int main(int argc, char **argv)
 {
 
     int x,y,n;
-    unsigned char *data = stbi_load(argv[1], &x, &y, &n, 0);
-    unsigned char *data565 = (unsigned char *) malloc((x*y)*sizeof(uint16_t));
-    RGB888toRGB565(data, data565, x*y, n);
-    printf("Got here.\n");
+	unsigned char *data;
+	unsigned char *data565;
+    // unsigned char *data = stbi_load(argv[1], &x, &y, &n, 0);
+    // unsigned char *data565_1 = (unsigned char *) malloc((x*y)*sizeof(uint16_t));
+    // size_t len_1 = RGB888toRGB565(data, data565_1, x*y, n);
+	// free(data);
+	size_t len;
 
     struct mpsse_context *mpsse = NULL;
     const char *devstr = NULL;
 	mpsse_init(0, devstr, false);
 
-    chip_select_fpga();
-	usleep(100000);
-	uint8_t command[3] = { 0xA0, 0x00, 0x00 };
-	mpsse_send_spi(command, 3);
-	mpsse_send_spi(data565, (x*y)*sizeof(uint16_t));
-    release_all();
-done:
+	setBrightness(0x2);
+
+	char *file[255];
+	size_t i = 1;
+	while(true)
+	{
+		sprintf(file, "../data/output64/frame_%03li.png", i);
+		printf("%s\n", file);
+
+	    data = stbi_load(file, &x, &y, &n, 0);
+		data565 = (unsigned char *) malloc((x*y)*sizeof(uint16_t));
+		len = RGB888toRGB565(data, data565, x*y, n);
+		free(data);	
+		drawBuffer(data565, len);
+		flipBuffer();
+		free(data565);
+		i++;	
+		if(i>94) i=1;
+	}
+
+	done:
     printf("\nDone.\n");
     mpsse_close();
-    free(data);
-    free(data565);
     return 1;
 }
