@@ -111,8 +111,10 @@ class Top_ICE40() extends Component {
         val loadAddress = Reg(Bool()) init(False)
         val lastPayload = Reg(Bits(8 bits)) init(0)
         val filpBuffer = Reg(Bool()) init(False)
+
         //val hub = new hub75_top(64, 64, 0x0800)
         val hub = new hub75_top(128, 64, 0x1000)
+        
         io.hub75 <> hub.io.hub75
 
         val hubAccess = False 

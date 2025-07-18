@@ -99,7 +99,7 @@ static void chip_select_fpga()
 void drawBuffer(unsigned char *rgb565, const size_t len)
 {
     chip_select_fpga();
-	usleep(20000);
+	usleep(10000);
 	uint8_t command[3] = { 0xA0, 0x00, 0x00 };
 	mpsse_send_spi(command, 3);
 	mpsse_send_spi(rgb565, len);
@@ -118,31 +118,19 @@ void setBrightness(const char level)
 void flipBuffer()
 {
 	chip_select_fpga();
-	usleep(20000);
+	usleep(10000);
 	uint8_t command[1] = { 0x20};
 	mpsse_send_spi(command, 1);
     release_all();
 }
 
-int main(int argc, char **argv)
+void doAnimation()
 {
-
-    int x,y,n;
+	int x,y,n;
+	size_t len;
 	unsigned char *data;
 	unsigned char *data565;
-    // unsigned char *data = stbi_load(argv[1], &x, &y, &n, 0);
-    // unsigned char *data565_1 = (unsigned char *) malloc((x*y)*sizeof(uint16_t));
-    // size_t len_1 = RGB888toRGB565(data, data565_1, x*y, n);
-	// free(data);
-	size_t len;
-
-    struct mpsse_context *mpsse = NULL;
-    const char *devstr = NULL;
-	mpsse_init(0, devstr, false);
-
-	setBrightness(0x2);
-
-	char *file[255];
+	char file[255];
 	size_t i = 1;
 	while(true)
 	{
@@ -159,8 +147,43 @@ int main(int argc, char **argv)
 		i++;	
 		if(i>94) i=1;
 	}
+}
 
+int main(int argc, char **argv)
+{
+
+    int x,y,n;
+	unsigned char *data;
+	unsigned char *data565;
+    data = stbi_load(argv[1], &x, &y, &n, 0);
+    data565 = (unsigned char *) malloc((x*y)*sizeof(uint16_t));
+    size_t len = RGB888toRGB565(data, data565, x*y, n);
+	free(data);
+
+    struct mpsse_context *mpsse = NULL;
+    const char *devstr = NULL;
+	mpsse_init(0, devstr, false);
+
+	setBrightness(0x2);
+	size_t i = 0;
+	while (true)
+	{
+	
+		for (i = 0; i < y-64; i++)
+		{
+			drawBuffer(&data565[i*(128*2)], (128*64)*2);
+			flipBuffer();
+		}
+
+		for (i = i; i > 0; i--)
+		{
+			drawBuffer(&data565[i*(128*2)], (128*64)*2);
+			flipBuffer();
+		}
+		
+	}
 	done:
+	free(data565);
     printf("\nDone.\n");
     mpsse_close();
     return 1;
