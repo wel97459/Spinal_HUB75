@@ -1,5 +1,5 @@
 *.cmake
 CMakeCache.txt
 CMakeFiles/
-Programmer
+artframe
 Makefile
