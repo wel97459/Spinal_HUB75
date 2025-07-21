@@ -11,7 +11,7 @@ const char *devstr = NULL;
 
 typedef struct 
 {
-    int x,y,n;
+    int x,y,n,f,fmax;
     unsigned char *data;
 } image_data;
 
@@ -91,7 +91,7 @@ static void chip_select_fpga()
 void drawBuffer(unsigned char *rgb565, const size_t len)
 {
     chip_select_fpga();
-	usleep(10000);
+	usleep(5000);
 	uint8_t command[3] = { 0xA0, 0x00, 0x00 };
 	mpsse_send_spi(command, 3);
 	mpsse_send_spi(rgb565, len);
@@ -101,7 +101,7 @@ void drawBuffer(unsigned char *rgb565, const size_t len)
 void setBrightness(const char level)
 {
 	chip_select_fpga();
-	usleep(100000);
+	usleep(5000);
 	uint8_t command[1] = { 0x10 | level & 0x03};
 	mpsse_send_spi(command, 1);
     release_all();
@@ -110,7 +110,7 @@ void setBrightness(const char level)
 void flipBuffer()
 {
 	chip_select_fpga();
-	usleep(10000);
+	usleep(5000);
 	uint8_t command[1] = { 0x20};
 	mpsse_send_spi(command, 1);
     release_all();
@@ -121,7 +121,7 @@ size_t RGB888toRGB565(unsigned char *rgb888, unsigned char *rgb565, const size_t
     size_t j=0;
     for(size_t i=0; i < len*n; i+=n)
     {
-        uint16_t r=rgb888[i+2], g=rgb888[i+1], b=rgb888[i];
+        uint16_t r=rgb888[i], g=rgb888[i+1], b=rgb888[i+2];
         uint16_t rgb = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
         rgb565[j++] = rgb & 0xff;
         rgb565[j++] = rgb >> 8;
@@ -182,7 +182,6 @@ void lerpf_p2(SDL_Point* p, SDL_Point *p1, SDL_Point *p2, const float t)
     p->y = lerpf(p1->y, p2->y, t);
 }
 
-
 float get_distance(SDL_Point* p1, SDL_Point *p2) {
   // Calculate the distance using the Pythagorean theorem
   return sqrt(pow(p2->x - p1->x, 2) + pow(p2->y - p1->y, 2));
@@ -201,40 +200,63 @@ void toScreen()
 }
 
 float i=0.0f, newI = 0.0f, dis=0.0;
-int x_1=0,x_2=32,y_1=0,y_2=64;
+int x_1=0,x_2=32,y_1=0,y_2=64, point=2;
 Uint32 start_time = 0;
 Uint32 last_time = 0;
 Uint32 delay_time = 0;
+Uint32 frame_time = 0;
 
 SDL_Point p_1 = {0,0};
 SDL_Point p_2 = {188,19};
 SDL_Point p_3 = {96,203};
+SDL_Point points[] = {{6,25}, {172,7}, {150,255}, {63,313}, {63,395}, {0, 410}, {0, 200}, {89, 200}, {-1,-1}};
 
 void newPoint()
 {
     p_1.x = p_2.x;
     p_1.y = p_2.y;
-    p_2.x = (rand() % (img.x - SCREEN_WIDTH));
-    p_2.y = (rand() % (img.y - SCREEN_HEIGHT));
-    
+    // p_2.x = (rand() % (img.x - SCREEN_WIDTH));
+    // p_2.y = (rand() % (img.y - SCREEN_HEIGHT));
+    if(points[point].x == -1 && points[point].y == -1) point = 0;
+    p_2.x = points[point].x;
+    p_2.y = points[point].y;
+    point++;
     dis = get_distance(&p_1, &p_2);
     printf("x: %i, y: %i, dis: %f\n", p_2.x, p_2.y, dis);
 }
 
-void sim_init(int argc, char *argv[]){
-    sim_load_image(&img, "../data/art/sr5z15f9ff4cbdaws3.png");
+void loadNextFrame(){
+    char file[255];
+    if(tex != NULL) SDL_DestroyTexture(tex);
+    sprintf(file, "../data/art/city/frame_%03i.png", img.f+1);
+    //printf("%s\n x:%i, y:%i\n", file, img.x, img.y);
+    sim_load_image(&img, file);
     tex = createImage(img.data, img.x, img.y);
+    img.f++;
+    if(img.f>img.fmax) img.f=0;
+}
+
+void sim_init(int argc, char *argv[]){
+    img.f = 0;
+    img.fmax = 11;
+
+    loadNextFrame();
 
     data565 = (unsigned char *) malloc((SCREEN_WIDTH*SCREEN_HEIGHT)*sizeof(uint16_t));
 
     newPoint();
     newPoint();
-	//mpsse_init(0, devstr, false);
-	//setBrightness(0x2);
+	mpsse_init(0, devstr, false);
+	setBrightness(0x2);
 }
 
 void sim_run(){
     start_time = SDL_GetTicks();
+    if(frame_time < start_time)
+    {
+        loadNextFrame();
+        frame_time = start_time + 30;
+    }
     if(delay_time < start_time){
         drawSetTarget(displayTexture);
 
@@ -252,10 +274,10 @@ void sim_run(){
         }else{
             i=i+newI;
         }
-        //toScreen();
+        toScreen();
         drawResetTarget();
-        //drawBuffer(data565, len);
-		//flipBuffer();
+        drawBuffer(data565, len);
+		flipBuffer();
         SDL_RenderCopy(renderer, displayTexture, NULL, &ScreenSpace);
         SDL_RenderPresent(renderer);
         delay_time = start_time + 100;
