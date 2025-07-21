@@ -155,20 +155,10 @@ SDL_Texture* createImage(unsigned char* data, int w, int h){
     return tex;
 }
 
+image_data img;
 SDL_Texture* tex;
 size_t len;
 unsigned char *data565;
-
-void sim_init(int argc, char *argv[]){
-    image_data img;
-    sim_load_image(&img, "../data/download.png");
-    tex = createImage(img.data, img.x, img.y);
-
-    data565 = (unsigned char *) malloc((SCREEN_WIDTH*SCREEN_HEIGHT)*sizeof(uint16_t));
-
-	mpsse_init(0, devstr, false);
-	setBrightness(0x2);
-}
 
 float lerpf(float a, float b, float t) {
   // Calculate the interpolated value.
@@ -180,9 +170,22 @@ void sim_keyevent(int event, int key) {
 }
 
 
-void lerpf_p3(SDL_Point* p, SDL_Point *p1, SDL_Point *p2, SDL_Point *p3, const float t){
+void lerpf_p3(SDL_Point* p, SDL_Point *p1, SDL_Point *p2, SDL_Point *p3, const float t)
+{
     p->x = lerpf(lerpf(p1->x, p2->x, t), lerpf(p2->x, p3->x, t), t);
     p->y = lerpf(lerpf(p1->y, p2->y, t), lerpf(p2->y, p3->y, t), t);
+}
+
+void lerpf_p2(SDL_Point* p, SDL_Point *p1, SDL_Point *p2, const float t)
+{
+    p->x = lerpf(p1->x, p2->x ,t);
+    p->y = lerpf(p1->y, p2->y, t);
+}
+
+
+float get_distance(SDL_Point* p1, SDL_Point *p2) {
+  // Calculate the distance using the Pythagorean theorem
+  return sqrt(pow(p2->x - p1->x, 2) + pow(p2->y - p1->y, 2));
 }
 
 void toScreen()
@@ -197,9 +200,10 @@ void toScreen()
 	SDL_FreeSurface(pScreenShot);
 }
 
-float i=0.0f;
+float i=0.0f, newI = 0.0f, dis=0.0;
 int x_1=0,x_2=32,y_1=0,y_2=64;
 Uint32 start_time = 0;
+Uint32 last_time = 0;
 Uint32 delay_time = 0;
 
 SDL_Point p_1 = {0,0};
@@ -208,10 +212,25 @@ SDL_Point p_3 = {96,203};
 
 void newPoint()
 {
-    p_1.x = p_3.x;
-    p_1.y = p_3.y;
-    p_2.x = p_2.x;
-    p_2.y = p_2.y;
+    p_1.x = p_2.x;
+    p_1.y = p_2.y;
+    p_2.x = (rand() % (img.x - SCREEN_WIDTH));
+    p_2.y = (rand() % (img.y - SCREEN_HEIGHT));
+    
+    dis = get_distance(&p_1, &p_2);
+    printf("x: %i, y: %i, dis: %f\n", p_2.x, p_2.y, dis);
+}
+
+void sim_init(int argc, char *argv[]){
+    sim_load_image(&img, "../data/art/sr5z15f9ff4cbdaws3.png");
+    tex = createImage(img.data, img.x, img.y);
+
+    data565 = (unsigned char *) malloc((SCREEN_WIDTH*SCREEN_HEIGHT)*sizeof(uint16_t));
+
+    newPoint();
+    newPoint();
+	//mpsse_init(0, devstr, false);
+	//setBrightness(0x2);
 }
 
 void sim_run(){
@@ -222,21 +241,25 @@ void sim_run(){
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
         SDL_RenderClear(renderer);
         SDL_Point p;
-        lerpf_p3(&p, &p_1, &p_2, &p_3,i);
+        lerpf_p2(&p, &p_1, &p_2, i);
 
         drawImageXY(tex, -p.x, -p.y);
-        if(i+0.01f>=1){
-            i=1;
+        newI = (start_time-last_time) / (1000.0 + (dis*100.0));
+        if(i+newI>=1){
+            i=0;
+            newPoint();
+            printf("inew: %f\n", newI);
         }else{
-            i=i+0.01f;
+            i=i+newI;
         }
-        toScreen();
+        //toScreen();
         drawResetTarget();
-        drawBuffer(data565, len);
-		flipBuffer();
+        //drawBuffer(data565, len);
+		//flipBuffer();
         SDL_RenderCopy(renderer, displayTexture, NULL, &ScreenSpace);
         SDL_RenderPresent(renderer);
         delay_time = start_time + 100;
+        last_time = start_time;
     }
 }
 
