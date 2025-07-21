@@ -121,7 +121,7 @@ size_t RGB888toRGB565(unsigned char *rgb888, unsigned char *rgb565, const size_t
     size_t j=0;
     for(size_t i=0; i < len*n; i+=n)
     {
-        uint16_t r=rgb888[i], g=rgb888[i+1], b=rgb888[i+2];
+        uint16_t r=rgb888[i+2], g=rgb888[i+1], b=rgb888[i];
         uint16_t rgb = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
         rgb565[j++] = rgb & 0xff;
         rgb565[j++] = rgb >> 8;
@@ -137,7 +137,7 @@ int sim_load_image(image_data *img, const char *filename)
 
 SDL_Texture* createImage(unsigned char* data, int w, int h){
     SDL_Texture* tex;
-    SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, w, h, 24, SDL_PIXELFORMAT_RGB888);
+    SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, w, h, 24, SDL_PIXELFORMAT_BGR888);
     if (!surface) {
         printf("Failed to create surface: %s\n", SDL_GetError());
         return NULL;
@@ -228,6 +228,7 @@ void newPoint()
 void loadNextFrame(){
     char file[255];
     if(tex != NULL) SDL_DestroyTexture(tex);
+    if(img.data != NULL) free(img.data);
     sprintf(file, "../data/art/city/frame_%03i.png", img.f+1);
     //printf("%s\n x:%i, y:%i\n", file, img.x, img.y);
     sim_load_image(&img, file);
@@ -280,7 +281,7 @@ void sim_run(){
 		flipBuffer();
         SDL_RenderCopy(renderer, displayTexture, NULL, &ScreenSpace);
         SDL_RenderPresent(renderer);
-        delay_time = start_time + 100;
+        delay_time = start_time + 30;
         last_time = start_time;
     }
 }
